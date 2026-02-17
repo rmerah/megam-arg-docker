@@ -1,0 +1,15 @@
+# FastAPI Backend pour Pipeline ARG
+# Installation: pip install -r requirements.txt
+
+# API Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Database
+aiosqlite>=0.19.0
+
+# Utilitaires
+python-multipart>=0.0.6
+python-dotenv>=1.0.0

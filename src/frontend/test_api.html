@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Test API Client</title>
+  <script src="api-client.js"></script>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #00ff00;
+    }
+    .test {
+      margin: 20px 0;
+      padding: 10px;
+      border: 1px solid #00ff00;
+    }
+    .success { color: #00ff00; }
+    .error { color: #ff0000; }
+    pre {
+      background: #000;
+      padding: 10px;
+      overflow-x: auto;
+    }
+    button {
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Test API Client JavaScript</h1>
+
+  <div class="test">
+    <h2>1. Test: Chargement api-client.js</h2>
+    <div id="test1"></div>
+  </div>
+
+  <div class="test">
+    <h2>2. Test: ARGPipelineAPI disponible</h2>
+    <div id="test2"></div>
+  </div>
+
+  <div class="test">
+    <h2>3. Test: Récupérer liste des jobs</h2>
+    <button onclick="testListJobs()">Tester listJobs()</button>
+    <div id="test3"></div>
+  </div>
+
+  <div class="test">
+    <h2>4. Test: Récupérer statut job courant</h2>
+    <input type="text" id="jobIdInput" placeholder="Entrer job_id" value="6862a15d-eb4b-4429-96a4-55117a9739b4" style="width: 400px; background: #000; color: #00ff00; border: 1px solid #00ff00; padding: 5px;">
+    <button onclick="testGetStatus()">Tester getStatus()</button>
+    <div id="test4"></div>
+  </div>
+
+  <div class="test">
+    <h2>5. Test: Connexion backend API</h2>
+    <button onclick="testBackendConnection()">Tester connexion</button>
+    <div id="test5"></div>
+  </div>
+
+  <script>
+    // Test 1: Vérifier que le fichier est chargé
+    const test1 = document.getElementById('test1');
+    if (typeof window.ARGPipelineAPI !== 'undefined') {
+      test1.innerHTML = '<span class="success">✅ api-client.js chargé avec succès</span>';
+    } else {
+      test1.innerHTML = '<span class="error">❌ ERREUR: api-client.js non chargé</span>';
+    }
+
+    // Test 2: Vérifier les fonctions disponibles
+    const test2 = document.getElementById('test2');
+    if (window.ARGPipelineAPI) {
+      const functions = Object.keys(window.ARGPipelineAPI);
+      test2.innerHTML = `<span class="success">✅ ARGPipelineAPI disponible avec ${functions.length} fonctions:</span><pre>${functions.join('\n')}</pre>`;
+    } else {
+      test2.innerHTML = '<span class="error">❌ ARGPipelineAPI non disponible</span>';
+    }
+
+    // Test 3: Liste des jobs
+    async function testListJobs() {
+      const test3 = document.getElementById('test3');
+      test3.innerHTML = '<span>⏳ Chargement...</span>';
+
+      try {
+        const result = await ARGPipelineAPI.listJobs({ limit: 5 });
+        test3.innerHTML = `<span class="success">✅ Succès (${result.total} jobs totaux)</span><pre>${JSON.stringify(result, null, 2)}</pre>`;
+      } catch (error) {
+        test3.innerHTML = `<span class="error">❌ ERREUR: ${error.message}</span><pre>${error.stack}</pre>`;
+      }
+    }
+
+    // Test 4: Statut d'un job
+    async function testGetStatus() {
+      const test4 = document.getElementById('test4');
+      const jobId = document.getElementById('jobIdInput').value;
+
+      if (!jobId) {
+        test4.innerHTML = '<span class="error">❌ Entrez un job_id</span>';
+        return;
+      }
+
+      test4.innerHTML = '<span>⏳ Chargement...</span>';
+
+      try {
+        const result = await ARGPipelineAPI.getStatus(jobId);
+        test4.innerHTML = `<span class="success">✅ Succès</span><pre>${JSON.stringify(result, null, 2)}</pre>`;
+      } catch (error) {
+        test4.innerHTML = `<span class="error">❌ ERREUR: ${error.message}</span><pre>${error.stack}</pre>`;
+      }
+    }
+
+    // Test 5: Connexion backend
+    async function testBackendConnection() {
+      const test5 = document.getElementById('test5');
+      test5.innerHTML = '<span>⏳ Test connexion...</span>';
+
+      try {
+        const response = await fetch('http://localhost:8000/api/jobs?limit=1');
+        if (response.ok) {
+          test5.innerHTML = `<span class="success">✅ Backend connecté (Status: ${response.status})</span>`;
+        } else {
+          test5.innerHTML = `<span class="error">❌ Backend erreur: ${response.status} ${response.statusText}</span>`;
+        }
+      } catch (error) {
+        test5.innerHTML = `<span class="error">❌ ERREUR: Impossible de se connecter au backend<br>${error.message}</span>`;
+      }
+    }
+
+    // Auto-run tests
+    window.addEventListener('load', () => {
+      console.log('🧪 Page de test chargée');
+      console.log('ARGPipelineAPI:', window.ARGPipelineAPI);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>MEGAM ARG Detection - Résultats</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+  <!-- HEADER -->
+  <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+      </div>
+      <nav class="flex gap-1 items-center">
+        <a id="running-jobs-indicator" href="#" class="hidden bg-orange-500 text-white px-3 py-2 rounded font-medium hover:bg-orange-600 transition items-center gap-2 animate-pulse">
+          <span class="animate-spin">⚙️</span> <span id="running-count">0</span> en cours
+        </a>
+        <a href="form_launch_analysis.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Nouvelle Analyse
+        </a>
+        <a href="jobs_list.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Historique
+        </a>
+        <a href="databases.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Bases de données
+        </a>
+        <a id="dashboard-link" href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Dashboard
+        </a>
+        <button onclick="openAboutModal()" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          À propos
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Loading -->
+    <div id="loading" class="text-center py-16">
+      <div class="text-4xl mb-4 animate-pulse">🧬</div>
+      <p class="text-gray-600">Chargement des résultats...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error-container" class="hidden">
+      <div class="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+        <p class="text-red-600 text-lg font-semibold" id="error-message">Erreur</p>
+        <a href="jobs_list.html" class="mt-4 inline-block bg-red-600 text-white px-6 py-2 rounded font-semibold hover:bg-red-700">
+          Voir tous les jobs
+        </a>
+      </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div id="results-content" class="hidden">
+
+      <!-- Header échantillon -->
+      <section class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <p class="text-sm text-gray-500 uppercase font-semibold">Échantillon</p>
+            <h2 class="text-3xl font-bold text-gray-900" id="sample-id">-</h2>
+            <p class="text-gray-600 mt-1">
+              <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-sm" id="input-type">-</span>
+              <span class="text-gray-400 mx-2">•</span>
+              <span id="analysis-date">-</span>
+            </p>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="generatePDFReport()" class="bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-700 transition flex items-center gap-2">
+              📄 PDF
+            </button>
+            <button onclick="scrollToFiles()" class="bg-amber-700 text-white px-4 py-2 rounded font-semibold hover:bg-amber-800 transition flex items-center gap-2">
+              📁 Fichiers
+            </button>
+            <button onclick="exportCSV()" class="bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700 transition flex items-center gap-2">
+              📥 Export CSV
+            </button>
+            <button onclick="window.print()" class="bg-gray-600 text-white px-4 py-2 rounded font-semibold hover:bg-gray-700 transition flex items-center gap-2">
+              🖨️ Imprimer
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Toggle Déduplication -->
+      <section class="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h3 class="font-bold text-gray-800 flex items-center gap-2">
+              <span>🔬</span> Mode d'affichage des gènes
+            </h3>
+            <p class="text-sm text-gray-600 mt-1">
+              <span id="dedup-info">Les gènes dédupliqués fusionnent les résultats de plusieurs outils pour éviter les doublons.</span>
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <label class="flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-dedup" checked class="sr-only peer">
+              <div class="relative w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+              <span class="ml-3 text-sm font-medium text-gray-900" id="toggle-label">Dédupliqué</span>
+            </label>
+            <div class="text-sm bg-white px-3 py-1 rounded border">
+              <span class="font-bold text-blue-600" id="dedup-count">0</span> gènes uniques
+              <span class="text-gray-400 mx-1">|</span>
+              <span class="text-gray-500" id="raw-count">0</span> bruts
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats principales -->
+      <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-red-500">
+          <p class="text-3xl font-bold text-red-600" id="total-arg">0</p>
+          <p class="text-xs text-gray-600 font-semibold">Total Gènes</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-blue-500">
+          <p class="text-3xl font-bold text-blue-600" id="amrfinder-count">0</p>
+          <p class="text-xs text-gray-600 font-semibold">AMRFinderPlus</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-green-500">
+          <p class="text-3xl font-bold text-green-600" id="resfinder-count">0</p>
+          <p class="text-xs text-gray-600 font-semibold">ResFinder</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-purple-500">
+          <p class="text-3xl font-bold text-purple-600" id="card-count">0</p>
+          <p class="text-xs text-gray-600 font-semibold">CARD</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-pink-500">
+          <p class="text-3xl font-bold text-pink-600" id="vfdb-count">0</p>
+          <p class="text-xs text-gray-600 font-semibold">VFDB (Virulence)</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4 text-center border-t-4 border-orange-500">
+          <p class="text-3xl font-bold text-orange-600" id="ncbi-count">0</p>
+          <p class="text-xs text-gray-600 font-semibold">NCBI</p>
+        </div>
+      </section>
+
+      <!-- Bouton Comprendre les résultats -->
+      <section class="mb-6">
+        <button onclick="openHelpModal()" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition flex items-center justify-center gap-2">
+          <span>❓</span> Comprendre les résultats et les différentes bases de données
+        </button>
+      </section>
+
+      <!-- Onglets de filtrage par type -->
+      <section class="bg-white rounded-lg shadow mb-6">
+        <div class="flex border-b overflow-x-auto">
+          <button onclick="filterByType('all')" id="tab-all" class="tab-btn px-6 py-3 font-semibold text-blue-600 border-b-2 border-blue-600 bg-blue-50">
+            📊 Tous <span class="ml-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs" id="count-all">0</span>
+          </button>
+          <button onclick="filterByType('amr')" id="tab-amr" class="tab-btn px-6 py-3 font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50">
+            💊 Résistance (AMR) <span class="ml-1 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs" id="count-amr">0</span>
+          </button>
+          <button onclick="filterByType('virulence')" id="tab-virulence" class="tab-btn px-6 py-3 font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50">
+            🦠 Virulence <span class="ml-1 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs" id="count-virulence">0</span>
+          </button>
+          <button onclick="filterByType('stress')" id="tab-stress" class="tab-btn px-6 py-3 font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50">
+            ⚡ Stress <span class="ml-1 bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs" id="count-stress">0</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Graphiques -->
+      <section class="grid md:grid-cols-2 gap-6 mb-6">
+        <!-- Pie chart résistances -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4">Distribution par Type de Résistance</h3>
+          <div class="h-64">
+            <canvas id="resistance-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Bar chart par outil -->
+        <div class="bg-white rounded-lg shadow p-6">
+          <h3 class="text-lg font-bold text-gray-800 mb-4">Détection par Outil</h3>
+          <div class="h-64">
+            <canvas id="tools-chart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats assemblage (si disponible) -->
+      <section id="assembly-stats" class="bg-white rounded-lg shadow p-6 mb-6 hidden">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">📊 Statistiques d'Assemblage</h3>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div class="text-center p-3 bg-gray-50 rounded">
+            <p class="text-2xl font-bold text-gray-800" id="total-contigs">-</p>
+            <p class="text-xs text-gray-500">Contigs</p>
+          </div>
+          <div class="text-center p-3 bg-gray-50 rounded">
+            <p class="text-2xl font-bold text-gray-800" id="total-length">-</p>
+            <p class="text-xs text-gray-500">Longueur totale</p>
+          </div>
+          <div class="text-center p-3 bg-gray-50 rounded">
+            <p class="text-2xl font-bold text-gray-800" id="n50">-</p>
+            <p class="text-xs text-gray-500">N50</p>
+          </div>
+          <div class="text-center p-3 bg-gray-50 rounded">
+            <p class="text-2xl font-bold text-gray-800" id="gc-content">-</p>
+            <p class="text-xs text-gray-500">GC %</p>
+          </div>
+          <div class="text-center p-3 bg-gray-50 rounded">
+            <p class="text-2xl font-bold text-gray-800" id="largest-contig">-</p>
+            <p class="text-xs text-gray-500">Plus grand contig</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Informations Taxonomiques -->
+      <section id="taxonomy-info" class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">🦠 Informations Taxonomiques & MLST</h3>
+        <!-- Grille 2x2 : deux cartes par ligne -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Ligne 1, Col 1 : Carte NCBI -->
+          <div id="ncbi-card" class="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg hidden">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs text-blue-600 font-semibold uppercase">Classification NCBI</p>
+              <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">NCBI Taxonomy</span>
+            </div>
+            <p class="text-lg font-bold text-blue-900 italic" id="ncbi-organism">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ncbi-details"></p>
+            <a id="ncbi-taxid-link" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-2 hidden">
+              Voir sur NCBI Taxonomy &rarr;
+            </a>
+          </div>
+          <!-- Fallback quand aucune info taxonomique (span 2 colonnes) -->
+          <div id="taxonomy-empty" class="p-4 bg-gray-50 border border-gray-200 rounded-lg hidden md:col-span-2">
+            <p class="text-sm text-gray-500">Aucune information taxonomique disponible</p>
+          </div>
+          <!-- Ligne 2, Col 1 : Schema MLST -->
+          <div class="p-4 bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg">
+            <p class="text-xs text-teal-600 font-semibold uppercase mb-1">Schema MLST</p>
+            <p class="text-lg font-bold text-teal-900" id="mlst-scheme">Non disponible</p>
+            <p class="text-xs text-gray-500 mt-1" id="mlst-source">MLST Analysis</p>
+          </div>
+          <!-- Ligne 2, Col 2 : Sequence Type -->
+          <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+            <p class="text-xs text-green-600 font-semibold uppercase mb-1">Sequence Type (ST)</p>
+            <p class="text-2xl font-bold text-green-900" id="sequence-type">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="st-clonal-complex"></p>
+          </div>
+          <!-- Ligne 3 : Profil Allelique (pleine largeur) -->
+          <div class="p-4 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg md:col-span-2">
+            <p class="text-xs text-orange-600 font-semibold uppercase mb-1">Profil Allelique</p>
+            <p class="text-sm font-mono font-bold text-orange-900 break-all" id="allelic-profile">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="allelic-genes"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Gènes ARG - Layout en 2 colonnes -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        <!-- Tableau des gènes ARG (2/3 de la largeur) -->
+        <section class="lg:col-span-2 bg-white rounded-lg shadow overflow-hidden min-w-0">
+          <div class="px-6 py-4 bg-gray-50 border-b flex items-center justify-between flex-wrap gap-2">
+            <h3 class="text-lg font-bold text-gray-800">🧬 Gènes de Résistance Détectés</h3>
+            <div class="flex gap-2 flex-wrap">
+              <input type="text" id="search-genes" placeholder="Rechercher..."
+                     class="border border-gray-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500">
+              <select id="filter-category" class="border border-gray-300 rounded px-3 py-1 text-sm bg-blue-50">
+                <option value="">📋 Tous les gènes</option>
+                <optgroup label="Par type">
+                  <option value="amr">💊 AMR (Résistance)</option>
+                  <option value="virulence">🦠 Virulence</option>
+                  <option value="stress">⚡ Stress</option>
+                </optgroup>
+                <optgroup label="Par priorité">
+                  <option value="critical">🔴 CRITICAL</option>
+                  <option value="high">🟠 HIGH</option>
+                  <option value="medium">🟡 MEDIUM</option>
+                </optgroup>
+              </select>
+              <select id="filter-resistance" class="border border-gray-300 rounded px-3 py-1 text-sm">
+                <option value="">Toutes résistances</option>
+              </select>
+            </div>
+          </div>
+          <!-- Barre de scroll du haut (synchronisée) -->
+          <div id="top-scroll" class="overflow-x-auto" style="height: 12px;">
+            <div id="top-scroll-inner" style="height: 1px;"></div>
+          </div>
+          <div id="table-scroll" class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-100 sticky top-0 z-10">
+                <tr>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Gène</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Produit</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Résistance</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Identité</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Coverage</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Position</th>
+                  <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Source</th>
+                </tr>
+              </thead>
+              <tbody id="genes-table">
+                <!-- Rempli par JS -->
+              </tbody>
+            </table>
+          </div>
+          <div class="px-6 py-3 bg-gray-50 border-t text-sm text-gray-500">
+            <span id="genes-count">0</span> gènes affichés
+          </div>
+        </section>
+
+        <!-- Panel Priorité (1/3 de la largeur) -->
+        <section class="bg-white rounded-lg shadow overflow-hidden min-w-0">
+          <div class="px-4 py-4 bg-red-600 text-white">
+            <h3 class="text-lg font-bold flex items-center gap-2">
+              ⚠️ Résistances Prioritaires
+            </h3>
+            <p class="text-red-100 text-sm">CRITICAL • HIGH • MEDIUM</p>
+          </div>
+
+          <!-- Stats de priorité -->
+          <div class="grid grid-cols-3 gap-2 p-4 bg-gray-50 border-b">
+            <div class="text-center p-2 bg-red-100 rounded">
+              <p class="text-xl font-bold text-red-700" id="critical-count">0</p>
+              <p class="text-xs text-red-600 font-semibold">CRITICAL</p>
+            </div>
+            <div class="text-center p-2 bg-orange-100 rounded">
+              <p class="text-xl font-bold text-orange-700" id="high-count">0</p>
+              <p class="text-xs text-orange-600 font-semibold">HIGH</p>
+            </div>
+            <div class="text-center p-2 bg-yellow-100 rounded">
+              <p class="text-xl font-bold text-yellow-700" id="medium-count">0</p>
+              <p class="text-xs text-yellow-600 font-semibold">MEDIUM</p>
+            </div>
+          </div>
+
+          <!-- Liste des gènes prioritaires -->
+          <div class="overflow-y-auto max-h-96" id="priority-genes-container">
+            <div id="priority-genes-list" class="divide-y">
+              <!-- Rempli par JS -->
+            </div>
+          </div>
+
+          <div class="px-4 py-3 bg-gray-50 border-t text-sm text-gray-500">
+            <span id="priority-genes-count">0</span> gènes prioritaires
+          </div>
+        </section>
+
+      </div>
+
+      <!-- Section Fichiers de Résultats -->
+      <section id="output-files-section" class="bg-white rounded-lg shadow overflow-hidden mb-6">
+        <div class="px-6 py-4 bg-gray-50 border-b flex items-center justify-between">
+          <h3 class="text-lg font-bold text-gray-800">📁 Tous les Fichiers Générés</h3>
+          <div class="flex gap-2">
+            <button onclick="refreshOutputFiles()" class="text-blue-600 hover:underline text-sm">🔄 Rafraîchir</button>
+            <span class="text-sm text-gray-500" id="files-count">0 fichiers</span>
+          </div>
+        </div>
+
+        <!-- Statistiques fichiers -->
+        <div class="grid grid-cols-4 gap-2 p-4 bg-gray-50 border-b">
+          <div class="text-center">
+            <p class="text-xl font-bold text-blue-600" id="total-files">0</p>
+            <p class="text-xs text-gray-500">Fichiers</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xl font-bold text-green-600" id="data-files">0</p>
+            <p class="text-xs text-gray-500">Données</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xl font-bold text-purple-600" id="report-files">0</p>
+            <p class="text-xs text-gray-500">Rapports</p>
+          </div>
+          <div class="text-center">
+            <p class="text-xl font-bold text-gray-600" id="total-size">-</p>
+            <p class="text-xs text-gray-500">Taille totale</p>
+          </div>
+        </div>
+
+        <!-- Catégories de fichiers -->
+        <div class="p-4" id="output-files-categories">
+          <p class="text-center text-gray-500 py-4">Chargement des fichiers...</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- File Viewer Modal -->
+  <div id="file-viewer-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden z-50" style="display: none;">
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative">
+
+        <!-- Bouton X en haut à droite -->
+        <button onclick="closeFileViewer()" class="absolute -top-3 -right-3 bg-red-600 text-white w-10 h-10 rounded-full font-bold text-xl hover:bg-red-700 transition shadow-lg z-10">
+          ✕
+        </button>
+
+        <!-- Header -->
+        <div class="px-6 py-4 border-b bg-gray-100 rounded-t-lg">
+          <div class="flex items-center justify-between">
+            <div class="flex-1 mr-4">
+              <h3 class="text-lg font-bold text-gray-800" id="file-viewer-title">Fichier</h3>
+              <p class="text-sm text-gray-500 truncate" id="file-viewer-path">-</p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              <a id="file-download-btn" href="#" download class="bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700 transition text-sm flex items-center gap-1">
+                📥 Télécharger
+              </a>
+              <button onclick="printFile()" class="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700 transition text-sm flex items-center gap-1">
+                🖨️ Imprimer
+              </button>
+              <button onclick="closeFileViewer()" class="bg-gray-500 text-white px-4 py-2 rounded font-semibold hover:bg-gray-600 transition text-sm">
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contenu -->
+        <div class="flex-1 overflow-auto p-4 bg-gray-50" id="file-viewer-container">
+          <div id="file-viewer-content-wrapper" class="bg-white border rounded-lg p-4 shadow-inner min-h-64">
+            <pre id="file-viewer-content" class="text-sm font-mono whitespace-pre-wrap break-words text-gray-800 leading-relaxed"></pre>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-3 border-t bg-gray-100 rounded-b-lg flex items-center justify-between">
+          <span id="file-viewer-info" class="text-sm text-gray-600">-</span>
+          <button onclick="closeFileViewer()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded font-semibold hover:bg-gray-300 transition">
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
+      <div class="text-center">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-20 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">MEGAM ARG Detection WEB</h2>
+        <p class="text-gray-600 mb-6">Pipeline de Détection des Gènes de Résistance aux Antimicrobiens</p>
+
+        <div class="bg-blue-50 rounded-lg p-4 mb-6">
+          <p class="text-sm text-gray-600 mb-2">Développé par</p>
+          <p class="text-lg font-bold text-blue-900">Rachid Merah</p>
+          <a href="mailto:rachid.merah77@gmail.com" class="text-blue-600 hover:underline block">rachid.merah77@gmail.com</a>
+          <a href="https://wa.me/213556146653" target="_blank" class="text-green-600 hover:underline flex items-center justify-center gap-1 mt-2">
+            <span>📱</span> +213 556 146 653 (WhatsApp)
+          </a>
+        </div>
+
+        <p class="text-sm text-gray-600 mb-4 px-4">
+          Contactez-moi pour signaler un bug ou proposer des améliorations.
+        </p>
+
+        <a href="https://github.com/rmerah/MEGAM-ARG-detection" target="_blank" class="inline-flex items-center gap-2 text-gray-700 hover:text-black font-semibold mb-4">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+
+        <p class="text-sm text-gray-500 mb-6">Version 3.2</p>
+
+        <button onclick="closeAboutModal()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Modal - Explication des résultats -->
+  <div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 overflow-y-auto">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl mx-4 my-8 max-h-[90vh] overflow-y-auto">
+      <!-- Header -->
+      <div class="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-t-lg">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">📚 Comprendre les Résultats</h2>
+          <button onclick="closeHelpModal()" class="text-white hover:text-gray-200 text-2xl">&times;</button>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-6">
+        <!-- Section Types de gènes -->
+        <div>
+          <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span class="bg-blue-100 text-blue-800 p-1 rounded">🧬</span> Types de Gènes Détectés
+          </h3>
+          <div class="grid md:grid-cols-3 gap-4">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p class="font-bold text-red-800 mb-2">💊 Résistance (AMR)</p>
+              <p class="text-sm text-red-700">Gènes conférant une résistance aux antibiotiques. Ces gènes permettent aux bactéries de survivre en présence d'antimicrobiens.</p>
+            </div>
+            <div class="bg-pink-50 border border-pink-200 rounded-lg p-4">
+              <p class="font-bold text-pink-800 mb-2">🦠 Virulence</p>
+              <p class="text-sm text-pink-700">Facteurs de virulence qui augmentent la pathogénicité. Incluent toxines, adhésines, systèmes de sécrétion, etc.</p>
+            </div>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p class="font-bold text-yellow-800 mb-2">⚡ Stress</p>
+              <p class="text-sm text-yellow-700">Gènes de réponse au stress permettant la survie dans des conditions hostiles (métaux lourds, désinfectants, etc.).</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Bases de données -->
+        <div>
+          <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span class="bg-green-100 text-green-800 p-1 rounded">🗄️</span> Bases de Données Utilisées
+          </h3>
+          <div class="space-y-3">
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
+              <p class="font-bold text-blue-800">AMRFinderPlus (NCBI)</p>
+              <p class="text-sm text-gray-700">Base de données officielle du NCBI. Détecte les gènes AMR, les mutations de résistance, les facteurs de virulence et les gènes de stress. <strong>La plus complète et régulièrement mise à jour.</strong></p>
+            </div>
+            <div class="bg-green-50 border-l-4 border-green-500 p-4">
+              <p class="font-bold text-green-800">ResFinder</p>
+              <p class="text-sm text-gray-700">Base de données du Center for Genomic Epidemiology (CGE). Spécialisée dans les gènes de résistance acquis. <strong>Excellente pour les gènes mobiles.</strong></p>
+            </div>
+            <div class="bg-purple-50 border-l-4 border-purple-500 p-4">
+              <p class="font-bold text-purple-800">CARD (Comprehensive Antibiotic Resistance Database)</p>
+              <p class="text-sm text-gray-700">Base de données exhaustive incluant gènes acquis, mutations et mécanismes d'efflux. <strong>Très détaillée avec annotations fonctionnelles.</strong></p>
+            </div>
+            <div class="bg-pink-50 border-l-4 border-pink-500 p-4">
+              <p class="font-bold text-pink-800">VFDB (Virulence Factor Database)</p>
+              <p class="text-sm text-gray-700">Base de données de facteurs de virulence bactériens. <strong>Ne détecte pas la résistance mais la pathogénicité.</strong></p>
+            </div>
+            <div class="bg-orange-50 border-l-4 border-orange-500 p-4">
+              <p class="font-bold text-orange-800">NCBI AMR</p>
+              <p class="text-sm text-gray-700">Base NCBI via ABRicate. Complémentaire à AMRFinderPlus.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Interprétation -->
+        <div>
+          <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span class="bg-yellow-100 text-yellow-800 p-1 rounded">📊</span> Comment Interpréter les Résultats
+          </h3>
+          <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+            <div class="flex items-start gap-3">
+              <span class="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold">Identité ≥99%</span>
+              <p class="text-sm text-gray-700">Correspondance quasi-parfaite. Le gène est très probablement présent et fonctionnel.</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">Identité 95-99%</span>
+              <p class="text-sm text-gray-700">Bonne correspondance. Possible variant du gène.</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold">Identité 90-95%</span>
+              <p class="text-sm text-gray-700">Correspondance modérée. Vérification recommandée.</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">Identité &lt;90%</span>
+              <p class="text-sm text-gray-700">Correspondance faible. Peut être un gène apparenté ou un faux positif.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section Priorités -->
+        <div>
+          <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span class="bg-red-100 text-red-800 p-1 rounded">⚠️</span> Classification des Priorités (Standards OMS/CDC)
+          </h3>
+
+          <!-- Explication de la méthodologie -->
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+            <p class="text-sm text-gray-700 mb-2">
+              <strong>📋 Méthodologie :</strong> La classification est basée sur la <strong>Liste OMS des Antimicrobiens d'Importance Critique (CIA 2024)</strong>
+              et le rapport <strong>CDC Antibiotic Resistance Threats</strong>. Elle combine :
+            </p>
+            <ul class="text-sm text-gray-600 ml-4 list-disc space-y-1">
+              <li><strong>Classe d'antibiotique</strong> : importance clinique selon OMS/CDC</li>
+              <li><strong>Qualité de détection</strong> : coverage ≥90% et identity ≥90% augmentent la confiance</li>
+              <li><strong>Mots-clés spécifiques</strong> : gènes connus de résistance critique (mcr, ndm, vim, kpc, oxa-48, vanA/B, mecA)</li>
+            </ul>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-4 mb-4">
+            <div class="bg-red-100 border border-red-300 rounded-lg p-4">
+              <p class="font-bold text-red-800 mb-2">🔴 CRITICAL</p>
+              <p class="text-xs text-red-600 font-semibold mb-2">Dernier recours / Menace urgente CDC</p>
+              <ul class="text-sm text-red-700 list-disc ml-4 space-y-1">
+                <li><strong>Carbapénèmes</strong> (NDM, KPC, VIM, IMP, OXA-48)</li>
+                <li><strong>Polymyxines/Colistine</strong> (mcr-1 à mcr-10)</li>
+                <li><strong>Glycopeptides</strong> (vanA, vanB - Vancomycine)</li>
+                <li><strong>Oxazolidinones</strong> (optrA, cfr - Linézolide)</li>
+                <li><strong>Lipopeptides</strong> (Daptomycine)</li>
+                <li><strong>MRSA</strong> (mecA, mecC - Méthicilline)</li>
+              </ul>
+            </div>
+            <div class="bg-orange-100 border border-orange-300 rounded-lg p-4">
+              <p class="font-bold text-orange-800 mb-2">🟠 HIGH</p>
+              <p class="text-xs text-orange-600 font-semibold mb-2">CIA Priorité 1 / Menace sérieuse CDC</p>
+              <ul class="text-sm text-orange-700 list-disc ml-4 space-y-1">
+                <li><strong>ESBL</strong> (CTX-M, TEM, SHV - Céphalosporines 3e gén)</li>
+                <li><strong>Fluoroquinolones</strong> (qnr, gyrA, parC)</li>
+                <li><strong>Macrolides</strong> (erm, mef - Azithromycine)</li>
+                <li><strong>Aminosides</strong> (aac, aph, ant - Gentamicine)</li>
+                <li><strong>Bêta-lactamines</strong> à large spectre</li>
+              </ul>
+            </div>
+            <div class="bg-yellow-100 border border-yellow-300 rounded-lg p-4">
+              <p class="font-bold text-yellow-800 mb-2">🟡 MEDIUM</p>
+              <p class="text-xs text-yellow-600 font-semibold mb-2">CIA Priorité 2 / Menace préoccupante</p>
+              <ul class="text-sm text-yellow-700 list-disc ml-4 space-y-1">
+                <li><strong>Tétracyclines</strong> (tet genes)</li>
+                <li><strong>Sulfamides</strong> (sul1, sul2, sul3)</li>
+                <li><strong>Phénicols</strong> (cat, floR - Chloramphénicol)</li>
+                <li><strong>Triméthoprime</strong> (dfr genes)</li>
+                <li><strong>Rifamycines</strong> (rpoB mutations)</li>
+                <li><strong>Fosfomycine</strong> (fosA, fosB)</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Références -->
+          <div class="bg-blue-50 border-l-4 border-blue-500 p-3 text-xs text-gray-600">
+            <strong>📚 Références :</strong>
+            <ul class="ml-4 mt-1 space-y-1">
+              <li>• OMS - Critically Important Antimicrobials for Human Medicine, 6th revision (2024)</li>
+              <li>• CDC - Antibiotic Resistance Threats in the United States (2019, updated 2024)</li>
+              <li>• ECDC - Antimicrobial resistance surveillance in Europe</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Note importante -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p class="font-bold text-blue-800 mb-2">💡 Note Importante</p>
+          <p class="text-sm text-gray-700">
+            Les résultats peuvent varier entre les bases de données car chacune utilise des critères et des séquences de référence différents.
+            Un même gène peut être détecté par plusieurs outils avec des noms légèrement différents.
+            <strong>La présence d'un gène ne garantit pas son expression fonctionnelle.</strong>
+            Pour une interprétation clinique, consultez un spécialiste en microbiologie.
+          </p>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="sticky bottom-0 bg-gray-100 px-6 py-4 rounded-b-lg border-t">
+        <button onclick="closeHelpModal()" class="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition">
+          J'ai compris
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="api-client.js"></script>
+  <script>
+    let allGenes = [];           // Gènes bruts (tous les outils)
+    let deduplicatedGenes = [];  // Gènes dédupliqués
+    let useDeduplication = true; // Mode actuel
+    let resistanceChart = null;
+    let toolsChart = null;
+
+    async function init() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const jobId = urlParams.get('job_id');
+
+      if (!jobId) {
+        showError('Aucun job_id spécifié dans l\'URL');
+        return;
+      }
+
+      // Update dashboard link
+      document.getElementById('dashboard-link').href = `dashboard_monitoring.html?job_id=${jobId}`;
+
+      try {
+        // Charger les résultats
+        const results = await fetch(`${API_BASE_URL}/api/results/${jobId}`, {
+          headers: { 'Cache-Control': 'no-cache' }
+        }).then(r => {
+          if (!r.ok) throw new Error('Job non trouvé ou pas encore terminé');
+          return r.json();
+        });
+
+        displayResults(results);
+
+      } catch (error) {
+        console.error('Erreur:', error);
+        showError(error.message);
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error-container').classList.remove('hidden');
+      document.getElementById('error-message').textContent = message;
+    }
+
+    let currentTypeFilter = 'all';
+
+    function displayResults(results) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('results-content').classList.remove('hidden');
+
+      // Header
+      document.getElementById('sample-id').textContent = results.sample_id || '-';
+      document.getElementById('input-type').textContent = (results.input_type || '-').toUpperCase();
+
+      // Collecter les gènes BRUTS (tous les outils)
+      allGenes = [];
+      let amrfinderCount = 0, resfinderCount = 0, cardCount = 0, vfdbCount = 0, ncbiCount = 0;
+
+      if (results.arg_detection) {
+        if (results.arg_detection.amrfinderplus?.genes) {
+          const genes = results.arg_detection.amrfinderplus.genes.filter(g => g.gene);
+          amrfinderCount = genes.length;
+          allGenes = allGenes.concat(genes.map(g => ({...g, source: 'AMRFinderPlus', sources: ['AMRFinderPlus']})));
+        }
+        if (results.arg_detection.resfinder?.genes) {
+          const genes = results.arg_detection.resfinder.genes.filter(g => g.gene && g.gene.trim());
+          resfinderCount = genes.length;
+          allGenes = allGenes.concat(genes.map(g => ({...g, source: 'ResFinder', sources: ['ResFinder']})));
+        }
+        if (results.arg_detection.card?.genes) {
+          const genes = results.arg_detection.card.genes.filter(g => g.gene);
+          cardCount = genes.length;
+          allGenes = allGenes.concat(genes.map(g => ({...g, source: 'CARD', sources: ['CARD']})));
+        }
+        if (results.arg_detection.vfdb?.genes) {
+          const genes = results.arg_detection.vfdb.genes.filter(g => g.gene);
+          vfdbCount = genes.length;
+          allGenes = allGenes.concat(genes.map(g => ({...g, source: 'VFDB', sources: ['VFDB'], element_type: 'VIRULENCE'})));
+        }
+        if (results.arg_detection.ncbi?.genes) {
+          const genes = results.arg_detection.ncbi.genes.filter(g => g.gene);
+          ncbiCount = genes.length;
+          allGenes = allGenes.concat(genes.map(g => ({...g, source: 'NCBI', sources: ['NCBI']})));
+        }
+      }
+
+      // Collecter les gènes DÉDUPLIQUÉS
+      deduplicatedGenes = [];
+      if (results.deduplicated_genes && results.deduplicated_genes.length > 0) {
+        deduplicatedGenes = results.deduplicated_genes.filter(g => g.gene);
+      }
+
+      // Stats déduplication
+      const rawCount = allGenes.length;
+      const dedupCount = deduplicatedGenes.length;
+      document.getElementById('raw-count').textContent = rawCount;
+      document.getElementById('dedup-count').textContent = dedupCount;
+
+      // Afficher le nombre selon le mode actuel
+      document.getElementById('total-arg').textContent = useDeduplication ? dedupCount : rawCount;
+      document.getElementById('amrfinder-count').textContent = amrfinderCount;
+      document.getElementById('resfinder-count').textContent = resfinderCount;
+      document.getElementById('card-count').textContent = cardCount;
+      document.getElementById('vfdb-count').textContent = vfdbCount;
+      document.getElementById('ncbi-count').textContent = ncbiCount;
+
+      // Comptages par type (selon mode)
+      const activeGenes = useDeduplication ? deduplicatedGenes : allGenes;
+      const amrGenes = activeGenes.filter(g => !g.element_type || g.element_type === 'AMR' || (g.source !== 'VFDB' && g.element_type !== 'VIRULENCE' && g.element_type !== 'STRESS'));
+      const virulenceGenes = activeGenes.filter(g => g.element_type === 'VIRULENCE' || g.source === 'VFDB');
+      const stressGenes = activeGenes.filter(g => g.element_type === 'STRESS');
+
+      document.getElementById('count-all').textContent = activeGenes.length;
+      document.getElementById('count-amr').textContent = amrGenes.length;
+      document.getElementById('count-virulence').textContent = virulenceGenes.length;
+      document.getElementById('count-stress').textContent = stressGenes.length;
+
+      // Assembly stats
+      if (results.assembly_stats) {
+        document.getElementById('assembly-stats').classList.remove('hidden');
+        document.getElementById('total-contigs').textContent = results.assembly_stats.total_contigs || '-';
+        document.getElementById('total-length').textContent = formatNumber(results.assembly_stats.total_length) || '-';
+        document.getElementById('n50').textContent = formatNumber(results.assembly_stats.n50) || '-';
+        document.getElementById('gc-content').textContent = results.assembly_stats.gc_content ? results.assembly_stats.gc_content.toFixed(1) + '%' : '-';
+        document.getElementById('largest-contig').textContent = formatNumber(results.assembly_stats.largest_contig) || '-';
+      }
+
+      // Taxonomy info (MLST, species, etc.)
+      displayTaxonomyInfo(results);
+
+      // Populate filter
+      const resistances = [...new Set(allGenes.map(g => g.resistance).filter(r => r))];
+      const filterSelect = document.getElementById('filter-resistance');
+      resistances.sort().forEach(r => {
+        const option = document.createElement('option');
+        option.value = r;
+        option.textContent = r;
+        filterSelect.appendChild(option);
+      });
+
+      // Render table avec les gènes selon le mode
+      renderGenesTable(useDeduplication ? deduplicatedGenes : allGenes);
+
+      // Charts
+      createResistanceChart(useDeduplication ? deduplicatedGenes : allGenes);
+      createToolsChart(amrfinderCount, resfinderCount, cardCount, vfdbCount, ncbiCount);
+
+      // Update priority panel
+      updatePriorityPanel(useDeduplication ? deduplicatedGenes : allGenes);
+
+      // Search and filter
+      document.getElementById('search-genes').addEventListener('input', filterGenes);
+      document.getElementById('filter-resistance').addEventListener('change', filterGenes);
+      document.getElementById('filter-category').addEventListener('change', filterGenes);
+
+      // Toggle déduplication
+      document.getElementById('toggle-dedup').addEventListener('change', function() {
+        useDeduplication = this.checked;
+        document.getElementById('toggle-label').textContent = useDeduplication ? 'Dédupliqué' : 'Brut';
+
+        const activeGenes = useDeduplication ? deduplicatedGenes : allGenes;
+        document.getElementById('total-arg').textContent = activeGenes.length;
+
+        // Update counts
+        const amrGenes = activeGenes.filter(g => !g.element_type || g.element_type === 'AMR' || (g.source !== 'VFDB' && g.element_type !== 'VIRULENCE' && g.element_type !== 'STRESS'));
+        const virulenceGenes = activeGenes.filter(g => g.element_type === 'VIRULENCE' || g.source === 'VFDB');
+        const stressGenes = activeGenes.filter(g => g.element_type === 'STRESS');
+
+        document.getElementById('count-all').textContent = activeGenes.length;
+        document.getElementById('count-amr').textContent = amrGenes.length;
+        document.getElementById('count-virulence').textContent = virulenceGenes.length;
+        document.getElementById('count-stress').textContent = stressGenes.length;
+
+        // Re-render
+        filterGenes();
+        createResistanceChart(activeGenes);
+        updatePriorityPanel(activeGenes);
+      });
+    }
+
+    // ===== FILTRAGE PAR TYPE =====
+    function filterByType(type) {
+      currentTypeFilter = type;
+
+      // Mettre à jour les onglets visuellement
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+        btn.classList.add('text-gray-500');
+      });
+      const activeTab = document.getElementById(`tab-${type}`);
+      if (activeTab) {
+        activeTab.classList.remove('text-gray-500');
+        activeTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+      }
+
+      // Filtrer et afficher
+      filterGenes();
+    }
+
+    function getFilteredGenesByType(genes) {
+      if (currentTypeFilter === 'all') return genes;
+
+      return genes.filter(g => {
+        const elementType = g.element_type || '';
+        const source = g.source || '';
+        // Pour les gènes dédupliqués, vérifier aussi les sources multiples
+        const sources = g.sources || [source];
+
+        if (currentTypeFilter === 'amr') {
+          // AMR: tout sauf VIRULENCE et STRESS explicites
+          return !sources.includes('VFDB') && elementType !== 'VIRULENCE' && elementType !== 'STRESS';
+        }
+        if (currentTypeFilter === 'virulence') {
+          return sources.includes('VFDB') || elementType === 'VIRULENCE';
+        }
+        if (currentTypeFilter === 'stress') {
+          return elementType === 'STRESS';
+        }
+        return true;
+      });
+    }
+
+    function renderGenesTable(genes) {
+      const tbody = document.getElementById('genes-table');
+      document.getElementById('genes-count').textContent = genes.length;
+
+      if (genes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-500">Aucun gène trouvé</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = genes.map(g => {
+        // Couleurs par source
+        const sourceColors = {
+          'AMRFinderPlus': 'bg-blue-100 text-blue-800',
+          'ResFinder': 'bg-green-100 text-green-800',
+          'CARD': 'bg-purple-100 text-purple-800',
+          'VFDB': 'bg-pink-100 text-pink-800',
+          'NCBI': 'bg-orange-100 text-orange-800'
+        };
+
+        // Afficher toutes les sources si disponibles
+        let sourcesHtml = '';
+        const sources = g.sources || [g.source];
+        if (sources.length > 1) {
+          // Gène détecté par plusieurs outils
+          sourcesHtml = `
+            <div class="flex flex-wrap gap-1">
+              ${sources.map(s => `<span class="${sourceColors[s] || 'bg-gray-100 text-gray-800'} px-1.5 py-0.5 rounded text-xs">${escapeHtml(s)}</span>`).join('')}
+            </div>
+            <span class="text-xs text-gray-500 mt-1">✓ ${sources.length} outils</span>
+          `;
+        } else {
+          const sourceColor = sourceColors[g.source] || 'bg-gray-100 text-gray-800';
+          sourcesHtml = `<span class="${sourceColor} px-2 py-1 rounded text-xs font-semibold">${escapeHtml(g.source)}</span>`;
+        }
+
+        return `
+          <tr class="border-b hover:bg-gray-50 ${sources.length > 1 ? 'bg-green-50' : ''}">
+            <td class="px-4 py-3 font-semibold text-blue-700 whitespace-nowrap">
+              ${escapeHtml(g.gene || '-')}
+              ${sources.length > 1 ? '<span class="ml-1 text-green-600 text-xs">🔗</span>' : ''}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600" title="${escapeHtml(g.product || '')}">${escapeHtml(g.product || '-')}</td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1 max-w-md">
+                ${(g.resistance || '-').split(';').map(r => `<span class="bg-red-100 text-red-800 px-1.5 py-0.5 rounded text-xs font-semibold">${escapeHtml(r.trim())}</span>`).join('')}
+              </div>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="${getIdentityColor(g.identity)}">${g.identity ? g.identity.toFixed(1) + '%' : '-'}</span>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">${g.coverage ? g.coverage.toFixed(1) + '%' : '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">${g.start && g.end ? `${g.start}-${g.end}` : '-'}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              ${sourcesHtml}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterGenes() {
+      const search = document.getElementById('search-genes').value.toLowerCase();
+      const resistance = document.getElementById('filter-resistance').value;
+      const category = document.getElementById('filter-category').value;
+
+      // Utiliser le bon ensemble de gènes selon le mode
+      const activeGenes = useDeduplication ? deduplicatedGenes : allGenes;
+
+      // D'abord filtrer par type (onglets)
+      let filtered = getFilteredGenesByType(activeGenes);
+
+      // Filtrer par catégorie (menu déroulant)
+      if (category) {
+        filtered = filtered.filter(g => {
+          const elementType = g.element_type || '';
+          const source = g.source || '';
+          const sources = g.sources || [source];
+          const priority = classifyGenePriority(g);
+
+          switch(category) {
+            case 'amr':
+              return !sources.includes('VFDB') && elementType !== 'VIRULENCE' && elementType !== 'STRESS';
+            case 'virulence':
+              return sources.includes('VFDB') || elementType === 'VIRULENCE';
+            case 'stress':
+              return elementType === 'STRESS';
+            case 'critical':
+              return priority === 'CRITICAL';
+            case 'high':
+              return priority === 'HIGH';
+            case 'medium':
+              return priority === 'MEDIUM';
+            default:
+              return true;
+          }
+        });
+      }
+
+      // Puis filtrer par recherche et résistance
+      filtered = filtered.filter(g => {
+        const matchSearch = !search ||
+          (g.gene && g.gene.toLowerCase().includes(search)) ||
+          (g.product && g.product.toLowerCase().includes(search)) ||
+          (g.resistance && g.resistance.toLowerCase().includes(search)) ||
+          (g.source && g.source.toLowerCase().includes(search)) ||
+          (g.sources && g.sources.some(s => s.toLowerCase().includes(search)));
+        const matchResistance = !resistance || g.resistance === resistance;
+        return matchSearch && matchResistance;
+      });
+
+      renderGenesTable(filtered);
+    }
+
+    function createResistanceChart(genes) {
+      const resistanceCounts = {};
+      genes.forEach(g => {
+        const r = g.resistance || 'Unknown';
+        resistanceCounts[r] = (resistanceCounts[r] || 0) + 1;
+      });
+
+      const labels = Object.keys(resistanceCounts);
+      const data = Object.values(resistanceCounts);
+      const colors = generateColors(labels.length);
+
+      const ctx = document.getElementById('resistance-chart').getContext('2d');
+      if (resistanceChart) resistanceChart.destroy();
+
+      resistanceChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: '#fff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    function createToolsChart(amr, res, card, vfdb = 0, ncbi = 0) {
+      const ctx = document.getElementById('tools-chart').getContext('2d');
+      if (toolsChart) toolsChart.destroy();
+
+      toolsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['AMRFinder+', 'ResFinder', 'CARD', 'VFDB', 'NCBI'],
+          datasets: [{
+            label: 'Gènes détectés',
+            data: [amr, res, card, vfdb, ncbi],
+            backgroundColor: ['#3B82F6', '#10B981', '#8B5CF6', '#EC4899', '#F97316'],
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { stepSize: 1 }
+            }
+          }
+        }
+      });
+    }
+
+    function exportCSV() {
+      if (allGenes.length === 0) {
+        alert('Aucun gène à exporter');
+        return;
+      }
+
+      const headers = ['Gene', 'Product', 'Resistance', 'Identity', 'Coverage', 'Start', 'End', 'Source'];
+      const rows = allGenes.map(g => [
+        g.gene || '',
+        g.product || '',
+        g.resistance || '',
+        g.identity || '',
+        g.coverage || '',
+        g.start || '',
+        g.end || '',
+        g.source || ''
+      ]);
+
+      const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ARG_results_${document.getElementById('sample-id').textContent}.csv`;
+      a.click();
+    }
+
+    function getIdentityColor(identity) {
+      if (!identity) return 'text-gray-500';
+      if (identity >= 99) return 'font-bold text-green-600';
+      if (identity >= 95) return 'font-semibold text-blue-600';
+      if (identity >= 90) return 'text-yellow-600';
+      return 'text-red-600';
+    }
+
+    function formatNumber(num) {
+      if (!num) return null;
+      if (num >= 1000000) return (num / 1000000).toFixed(2) + ' Mb';
+      if (num >= 1000) return (num / 1000).toFixed(1) + ' kb';
+      return num.toString();
+    }
+
+    function generateColors(count) {
+      const baseColors = [
+        '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16',
+        '#22C55E', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9',
+        '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#D946EF',
+        '#EC4899', '#F43F5E'
+      ];
+      return baseColors.slice(0, count);
+    }
+
+    // ===== PRIORITY GENES CLASSIFICATION (OMS/CDC Standards) =====
+    // Classification basée sur OMS CIA 2024 et CDC Antibiotic Resistance Threats
+
+    // Classes d'antibiotiques par priorité OMS/CDC
+    const ANTIBIOTIC_CLASSES = {
+      // Dernier recours / Menace urgente CDC (score +4)
+      CRITICAL: [
+        'carbapenem', 'polymyxin', 'colistin', 'glycopeptide', 'vancomycin',
+        'oxazolidinone', 'linezolid', 'lipopeptide', 'daptomycin', 'tigecycline'
+      ],
+      // CIA Priorité 1 / Menace sérieuse CDC (score +3)
+      HIGH: [
+        'cephalosporin', 'fluoroquinolone', 'quinolone', 'macrolide',
+        'aminoglycoside', 'beta-lactam', 'penicillin'
+      ],
+      // CIA Priorité 2 / Menace préoccupante (score +2)
+      MEDIUM: [
+        'tetracycline', 'phenicol', 'chloramphenicol', 'sulfonamide', 'sulphonamide',
+        'trimethoprim', 'rifamycin', 'rifampicin', 'fosfomycin', 'nitroimidazole',
+        'nitrofuran', 'fusidic', 'mupirocin', 'streptogramin'
+      ]
+    };
+
+    // Gènes/mots-clés spécifiques à haute priorité (bonus +2)
+    const CRITICAL_GENES = [
+      // Carbapénémases
+      'ndm', 'kpc', 'vim', 'imp', 'oxa-48', 'oxa-23', 'oxa-24', 'oxa-58', 'oxa-181',
+      // Colistine/Polymyxines
+      'mcr-1', 'mcr-2', 'mcr-3', 'mcr-4', 'mcr-5', 'mcr-6', 'mcr-7', 'mcr-8', 'mcr-9', 'mcr-10', 'mcr',
+      // Glycopeptides (Vancomycine)
+      'vana', 'vanb', 'vanc', 'vand', 'vane', 'vancomycin',
+      // MRSA
+      'meca', 'mecc', 'methicillin', 'mrsa',
+      // Linézolide
+      'optra', 'cfr', 'poxta',
+      // Daptomycine
+      'daptomycin'
+    ];
+
+    const HIGH_GENES = [
+      // ESBL
+      'ctx-m', 'ctxm', 'tem', 'shv', 'esbl', 'cmy', 'dha', 'acc',
+      // Fluoroquinolones
+      'qnra', 'qnrb', 'qnrs', 'qnrd', 'qnr', 'gyra', 'parc', 'aac(6\')-ib-cr',
+      // Macrolides
+      'erma', 'ermb', 'ermc', 'erm(', 'mefa', 'mef(', 'mph(',
+      // Aminosides
+      'aac(', 'aph(', 'ant(', 'arma', 'rmta', 'rmtb', 'rmtc', 'npma'
+    ];
+
+    /**
+     * Classifie la priorité d'un gène ARG selon les standards OMS/CDC
+     * @param {Object} gene - Objet gène avec gene, product, resistance, coverage, identity
+     * @returns {string|null} - 'CRITICAL', 'HIGH', 'MEDIUM' ou null
+     */
+    function classifyGenePriority(gene) {
+      // Utiliser la priorité pré-calculée par le serveur si disponible (source unique de vérité)
+      if (gene.priority && ['CRITICAL', 'HIGH', 'MEDIUM'].includes(gene.priority)) {
+        return gene.priority;
+      }
+
+      // Fallback : classification locale (pour compatibilité avec anciennes données)
+      const resistance = (gene.resistance || '').toLowerCase();
+      const subclass = (gene.subclass || '').toLowerCase();
+      const geneName = (gene.gene || '').toLowerCase();
+      const product = (gene.product || '').toLowerCase();
+      const combined = resistance + ' ' + subclass + ' ' + geneName + ' ' + product;
+
+      const coverage = parseFloat(gene.coverage) || 0;
+      const identity = parseFloat(gene.identity) || 0;
+
+      // Calcul du score de gravité
+      let severityScore = 0;
+
+      // 1. Score basé sur la classe d'antibiotique
+      for (const keyword of ANTIBIOTIC_CLASSES.CRITICAL) {
+        if (combined.includes(keyword)) {
+          severityScore += 4;
+          break;
+        }
+      }
+      if (severityScore === 0) {
+        for (const keyword of ANTIBIOTIC_CLASSES.HIGH) {
+          if (combined.includes(keyword)) {
+            severityScore += 3;
+            break;
+          }
+        }
+      }
+      if (severityScore === 0) {
+        for (const keyword of ANTIBIOTIC_CLASSES.MEDIUM) {
+          if (combined.includes(keyword)) {
+            severityScore += 2;
+            break;
+          }
+        }
+      }
+      if (severityScore === 0) {
+        severityScore = 1; // Classe inconnue
+      }
+
+      // 2. Bonus pour gènes critiques spécifiques
+      for (const criticalGene of CRITICAL_GENES) {
+        if (geneName.includes(criticalGene) || product.includes(criticalGene)) {
+          severityScore += 2;
+          break;
+        }
+      }
+
+      // 3. Bonus pour gènes à haute priorité spécifiques
+      if (severityScore < 5) {
+        for (const highGene of HIGH_GENES) {
+          if (geneName.includes(highGene) || product.includes(highGene)) {
+            severityScore += 1;
+            break;
+          }
+        }
+      }
+
+      // 4. Bonus pour qualité de détection
+      if (coverage >= 95 && identity >= 95) {
+        severityScore += 1; // Détection très confiante
+      }
+
+      // Classification finale - tous les gènes ARG ont une priorité
+      if (severityScore >= 5) return 'CRITICAL';
+      if (severityScore >= 3) return 'HIGH';
+      return 'MEDIUM';  // Par défaut MEDIUM (jamais null)
+    }
+
+    function updatePriorityPanel(genes) {
+      const priorityGenes = genes
+        .map(g => ({ ...g, priority: classifyGenePriority(g) }))
+        .filter(g => g.priority)
+        .sort((a, b) => {
+          const order = { CRITICAL: 0, HIGH: 1, MEDIUM: 2 };
+          return order[a.priority] - order[b.priority];
+        });
+
+      // Count by priority
+      const criticalCount = priorityGenes.filter(g => g.priority === 'CRITICAL').length;
+      const highCount = priorityGenes.filter(g => g.priority === 'HIGH').length;
+      const mediumCount = priorityGenes.filter(g => g.priority === 'MEDIUM').length;
+
+      document.getElementById('critical-count').textContent = criticalCount;
+      document.getElementById('high-count').textContent = highCount;
+      document.getElementById('medium-count').textContent = mediumCount;
+      document.getElementById('priority-genes-count').textContent = priorityGenes.length;
+
+      // Render priority genes list
+      const container = document.getElementById('priority-genes-list');
+
+      if (priorityGenes.length === 0) {
+        container.innerHTML = '<div class="p-4 text-center text-gray-500">Aucun gène prioritaire détecté</div>';
+        return;
+      }
+
+      container.innerHTML = priorityGenes.map(g => {
+        const priorityColors = {
+          CRITICAL: 'bg-red-100 text-red-800 border-l-4 border-red-500',
+          HIGH: 'bg-orange-100 text-orange-800 border-l-4 border-orange-500',
+          MEDIUM: 'bg-yellow-100 text-yellow-800 border-l-4 border-yellow-500'
+        };
+        const badgeColors = {
+          CRITICAL: 'bg-red-600 text-white',
+          HIGH: 'bg-orange-600 text-white',
+          MEDIUM: 'bg-yellow-600 text-white'
+        };
+
+        return `
+          <div class="p-3 ${priorityColors[g.priority]} hover:opacity-80 transition overflow-hidden">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-gray-800 truncate mr-2">${escapeHtml(g.gene)}</span>
+              <span class="text-xs px-2 py-0.5 rounded flex-shrink-0 ${badgeColors[g.priority]}">${escapeHtml(g.priority)}</span>
+            </div>
+            <div class="text-xs text-gray-600 break-words">
+              <span class="font-semibold">${escapeHtml(g.resistance || 'Unknown')}</span>
+              <span class="mx-1">•</span>
+              <span>${g.identity ? g.identity.toFixed(1) + '% ID' : '-'}</span>
+              <span class="mx-1">•</span>
+              <span class="text-gray-500">${escapeHtml(g.source)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ===== TAXONOMY INFO =====
+    function displayTaxonomyInfo(results) {
+      let hasTaxonomy = false;
+
+      // Carte NCBI (depuis results.taxonomy.ncbi)
+      if (results.taxonomy && results.taxonomy.ncbi) {
+        const ncbi = results.taxonomy.ncbi;
+        const ncbiCard = document.getElementById('ncbi-card');
+        ncbiCard.classList.remove('hidden');
+        hasTaxonomy = true;
+
+        if (ncbi.organism) {
+          document.getElementById('ncbi-organism').textContent = ncbi.organism;
+        }
+
+        // Détails (espèce + souche)
+        const details = [];
+        if (ncbi.species) details.push(escapeHtml(ncbi.species));
+        if (ncbi.strain) details.push('Souche: ' + escapeHtml(ncbi.strain));
+        document.getElementById('ncbi-details').innerHTML = details.join(' &bull; ');
+
+        // Lien NCBI Taxonomy
+        if (ncbi.taxid) {
+          const link = document.getElementById('ncbi-taxid-link');
+          link.href = 'https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=' + encodeURIComponent(ncbi.taxid);
+          link.classList.remove('hidden');
+        }
+      }
+
+
+      // Fallback si aucune info
+      if (!hasTaxonomy) {
+        document.getElementById('taxonomy-empty').classList.remove('hidden');
+      }
+
+      // MLST info (inchangé)
+      if (results.mlst) {
+        const mlst = results.mlst;
+
+        // Schéma MLST
+        const scheme = mlst.scheme || mlst.species;
+        if (scheme) {
+          document.getElementById('mlst-scheme').textContent = scheme;
+          document.getElementById('mlst-source').textContent = mlst.source || 'MLST Analysis';
+        }
+
+        // Sequence Type
+        const st = mlst.sequence_type || mlst.ST || mlst.st;
+        if (st) {
+          document.getElementById('sequence-type').textContent = `ST${st}`;
+          document.getElementById('st-clonal-complex').textContent = mlst.clonal_complex
+            ? `CC: ${mlst.clonal_complex}`
+            : (mlst.notes || '');
+        }
+
+        // Profil allélique
+        if (mlst.alleles) {
+          const alleleStr = typeof mlst.alleles === 'object'
+            ? Object.entries(mlst.alleles).map(([k, v]) => `${k}:${v}`).join(' ')
+            : mlst.alleles;
+          document.getElementById('allelic-profile').textContent = alleleStr || '-';
+          document.getElementById('allelic-genes').textContent = mlst.genes
+            ? `Gènes: ${Array.isArray(mlst.genes) ? mlst.genes.join(', ') : mlst.genes}`
+            : '';
+        } else if (mlst.profile) {
+          document.getElementById('allelic-profile').textContent = mlst.profile;
+        }
+      }
+    }
+
+    // ===== SCROLL TO FILES =====
+    function scrollToFiles() {
+      const filesSection = document.getElementById('output-files-section');
+      if (filesSection) {
+        filesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // ===== ABOUT MODAL =====
+    function openAboutModal() {
+      document.getElementById('about-modal').classList.remove('hidden');
+    }
+
+    function closeAboutModal() {
+      document.getElementById('about-modal').classList.add('hidden');
+    }
+
+    // ===== HELP MODAL =====
+    function openHelpModal() {
+      document.getElementById('help-modal').classList.remove('hidden');
+    }
+
+    function closeHelpModal() {
+      document.getElementById('help-modal').classList.add('hidden');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAboutModal();
+        closeHelpModal();
+        closeFileViewer();
+      }
+    });
+
+    // ===== OUTPUT FILES =====
+    let currentJobId = null;
+
+    async function refreshOutputFiles() {
+      if (!currentJobId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentJobId = urlParams.get('job_id');
+      }
+      if (!currentJobId) return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${currentJobId}/files`);
+        const data = await response.json();
+        updateOutputFilesUI(data);
+      } catch (error) {
+        console.error('Erreur chargement fichiers:', error);
+        document.getElementById('output-files-categories').innerHTML =
+          '<p class="text-center text-red-500 py-4">Erreur lors du chargement des fichiers</p>';
+      }
+    }
+
+    function updateOutputFilesUI(data) {
+      if (!data || !data.files || data.files.length === 0) {
+        document.getElementById('output-files-categories').innerHTML =
+          '<p class="text-center text-gray-500 py-4">Aucun fichier disponible</p>';
+        return;
+      }
+
+      // Stats
+      document.getElementById('total-files').textContent = data.total_files;
+      document.getElementById('total-size').textContent = data.total_size;
+      document.getElementById('data-files').textContent = data.files.filter(f => f.type === 'data').length;
+      document.getElementById('report-files').textContent = data.files.filter(f => f.type === 'report').length;
+      document.getElementById('files-count').textContent = `${data.total_files} fichiers`;
+
+      // Catégories
+      const categoriesContainer = document.getElementById('output-files-categories');
+      const categoryNames = {
+        '01_quality_control': '🔬 Contrôle Qualité',
+        '02_assembly': '🧩 Assemblage',
+        '03_annotation': '📝 Annotation',
+        '04_arg_detection': '💊 Détection ARG',
+        '05_taxonomy': '🦠 Taxonomie',
+        '06_analysis': '📊 Analyses',
+        'logs': '📋 Logs',
+        'root': '📁 Racine'
+      };
+
+      let html = '<div class="space-y-3">';
+
+      for (const [category, files] of Object.entries(data.categories)) {
+        const catName = categoryNames[category] || `📂 ${escapeHtml(category)}`;
+        const safeCat = /^[a-zA-Z0-9_]+$/.test(category) ? category : category.replace(/[^a-zA-Z0-9_]/g, '_');
+
+        html += `
+          <div class="border rounded-lg overflow-hidden">
+            <button onclick="toggleCategory('${safeCat}')" class="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 flex items-center justify-between transition">
+              <span class="font-semibold text-gray-800">${escapeHtml(catName)}</span>
+              <span class="text-sm text-gray-500">${files.length} fichiers</span>
+            </button>
+            <div id="cat-${safeCat}" class="hidden divide-y max-h-64 overflow-y-auto">
+              ${files.map(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const isHtml = ext === 'html' || ext === 'htm';
+                const isViewable = ['txt', 'log', 'tsv', 'csv', 'json', 'fasta', 'fa', 'fna', 'gff', 'gbk'].includes(ext);
+                const safePath = escapeHtml(file.relative_path);
+
+                return `
+                <div class="px-4 py-2 hover:bg-blue-50 flex items-center justify-between transition">
+                  <div class="flex items-center gap-3">
+                    <span class="text-lg">${escapeHtml(file.icon)}</span>
+                    <div>
+                      <p class="font-medium text-gray-800 text-sm">${escapeHtml(file.name)}</p>
+                      <p class="text-xs text-gray-500">${escapeHtml(file.size_human)}</p>
+                    </div>
+                  </div>
+                  <div class="flex gap-1">
+                    ${isHtml ? `
+                      <button onclick="event.stopPropagation(); openFileInBrowser('${safePath}')" class="bg-blue-500 text-white hover:bg-blue-600 px-2 py-1 rounded text-xs font-semibold" title="Ouvrir dans le navigateur">🌐 Ouvrir</button>
+                    ` : ''}
+                    ${isViewable ? `
+                      <button onclick="event.stopPropagation(); viewFile('${safePath}')" class="text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-xs" title="Voir le contenu">👁️ Voir</button>
+                    ` : ''}
+                    <a href="${API_BASE_URL}/api/jobs/${escapeHtml(currentJobId)}/files/download/${safePath}" download onclick="event.stopPropagation()" class="text-green-600 hover:bg-green-100 px-2 py-1 rounded text-xs" title="Télécharger">📥</a>
+                  </div>
+                </div>
+              `;}).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      html += '</div>';
+      categoriesContainer.innerHTML = html;
+    }
+
+    function toggleCategory(category) {
+      const el = document.getElementById(`cat-${category}`);
+      if (el) {
+        el.classList.toggle('hidden');
+      }
+    }
+
+    // Ouvrir un fichier HTML dans un nouvel onglet du navigateur
+    function openFileInBrowser(relativePath) {
+      if (!currentJobId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentJobId = urlParams.get('job_id');
+      }
+
+      // Construire l'URL pour le fichier HTML
+      const fileUrl = `${API_BASE_URL}/api/jobs/${currentJobId}/files/serve/${relativePath}`;
+      window.open(fileUrl, '_blank');
+    }
+
+    async function viewFile(relativePath) {
+      if (!currentJobId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentJobId = urlParams.get('job_id');
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${currentJobId}/files/view/${relativePath}`);
+        const data = await response.json();
+
+        const modal = document.getElementById('file-viewer-modal');
+        document.getElementById('file-viewer-title').textContent = data.name || relativePath;
+        document.getElementById('file-viewer-path').textContent = relativePath;
+
+        const contentEl = document.getElementById('file-viewer-content');
+        const wrapperEl = document.getElementById('file-viewer-content-wrapper');
+
+        if (data.error) {
+          contentEl.innerHTML = `<span class="text-red-600">Erreur: ${escapeHtml(data.error)}</span>`;
+          wrapperEl.className = 'bg-red-50 border border-red-200 rounded-lg p-4 shadow-inner min-h-64';
+        } else {
+          // Formater le contenu selon le type de fichier
+          const ext = relativePath.split('.').pop().toLowerCase();
+          let formattedContent = data.content || '(fichier vide)';
+
+          // Pour les fichiers TSV/CSV, créer un tableau HTML
+          if (ext === 'tsv' || ext === 'csv') {
+            const delimiter = ext === 'tsv' ? '\t' : ',';
+            const lines = formattedContent.split('\n').filter(l => l.trim());
+            if (lines.length > 0) {
+              let tableHtml = '<table class="w-full text-xs border-collapse">';
+              lines.forEach((line, i) => {
+                const cells = line.split(delimiter);
+                const tag = i === 0 ? 'th' : 'td';
+                const bgClass = i === 0 ? 'bg-blue-100 font-bold' : (i % 2 === 0 ? 'bg-gray-50' : 'bg-white');
+                tableHtml += `<tr class="${bgClass}">`;
+                cells.forEach(cell => {
+                  tableHtml += `<${tag} class="border border-gray-300 px-2 py-1 text-left">${escapeHtml(cell.trim())}</${tag}>`;
+                });
+                tableHtml += '</tr>';
+              });
+              tableHtml += '</table>';
+              contentEl.innerHTML = tableHtml;
+              wrapperEl.className = 'bg-white border rounded-lg p-2 shadow-inner overflow-x-auto';
+            } else {
+              contentEl.textContent = formattedContent;
+              wrapperEl.className = 'bg-white border rounded-lg p-4 shadow-inner min-h-64';
+            }
+          } else {
+            // Fichier texte normal
+            contentEl.textContent = formattedContent;
+            wrapperEl.className = 'bg-gray-900 border rounded-lg p-4 shadow-inner min-h-64';
+            contentEl.className = 'text-sm font-mono whitespace-pre-wrap break-words text-green-400 leading-relaxed';
+          }
+        }
+
+        document.getElementById('file-viewer-info').textContent = data.truncated
+          ? `📄 Affichage ${data.lines_returned} lignes sur ${data.total_lines} (${data.size})`
+          : `📄 ${data.total_lines || 0} lignes (${data.size || '-'})`;
+
+        document.getElementById('file-download-btn').href = `${API_BASE_URL}/api/jobs/${currentJobId}/files/download/${relativePath}`;
+
+        // Afficher la modale
+        modal.style.display = 'block';
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+      } catch (error) {
+        console.error('Erreur affichage fichier:', error);
+        alert('Erreur lors du chargement du fichier: ' + error.message);
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function closeFileViewer() {
+      const modal = document.getElementById('file-viewer-modal');
+      modal.style.display = 'none';
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    function printFile() {
+      const content = document.getElementById('file-viewer-content').innerText || document.getElementById('file-viewer-content').textContent;
+      const title = document.getElementById('file-viewer-title').textContent;
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${title}</title>
+            <style>
+              body { font-family: 'Courier New', monospace; font-size: 10px; white-space: pre-wrap; margin: 20px; line-height: 1.4; }
+              h1 { font-family: Arial, sans-serif; font-size: 16px; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+              table { border-collapse: collapse; width: 100%; font-size: 9px; }
+              th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+              th { background: #f0f0f0; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <h1>📄 ${title}</h1>
+            <pre>${content}</pre>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 250);
+    }
+
+    // ===== RUNNING JOBS INDICATOR =====
+    async function checkRunningJobs() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs?limit=50`);
+        const data = await response.json();
+        const runningJobs = data.jobs.filter(j => j.status === 'RUNNING');
+
+        const indicator = document.getElementById('running-jobs-indicator');
+        const countEl = document.getElementById('running-count');
+
+        if (runningJobs.length > 0) {
+          indicator.classList.remove('hidden');
+          indicator.classList.add('flex');
+          countEl.textContent = runningJobs.length;
+          indicator.href = `dashboard_monitoring.html?job_id=${runningJobs[0].job_id}`;
+        } else {
+          indicator.classList.add('hidden');
+          indicator.classList.remove('flex');
+        }
+      } catch (error) {
+        console.error('Error checking running jobs:', error);
+      }
+    }
+
+    // ===== GÉNÉRATION RAPPORT PDF =====
+    function generatePDFReport() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      // Récupérer les données
+      const sampleId = document.getElementById('sample-id').textContent;
+      const inputType = document.getElementById('input-type').textContent;
+      const analysisDate = document.getElementById('analysis-date').textContent || new Date().toLocaleDateString('fr-FR');
+
+      // Calculer la priorité pour chaque gène et filtrer CRITICAL et HIGH
+      const activeGenes = useDeduplication ? deduplicatedGenes : allGenes;
+      const genesWithPriority = activeGenes.map(g => ({
+        ...g,
+        priority: classifyGenePriority(g)
+      }));
+      const criticalHighGenes = genesWithPriority.filter(g =>
+        g.priority === 'CRITICAL' || g.priority === 'HIGH'
+      );
+
+      // Extraire les antibiotiques (résistances)
+      const resistances = [...new Set(criticalHighGenes.map(g => g.resistance).filter(r => r))];
+
+      let yPos = 20;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+
+      // ===== EN-TÊTE =====
+      doc.setFillColor(30, 58, 138); // Bleu foncé
+      doc.rect(0, 0, pageWidth, 40, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Rapport d\'Analyse ARG', pageWidth / 2, 18, { align: 'center' });
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Détection des Gènes de Résistance aux Antimicrobiens', pageWidth / 2, 28, { align: 'center' });
+
+      doc.setFontSize(10);
+      doc.text('MEGAM ARG Detection Pipeline v3.2', pageWidth / 2, 36, { align: 'center' });
+
+      yPos = 50;
+
+      // ===== INFORMATIONS GÉNÉRALES =====
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Informations Générales', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Échantillon : ${sampleId}`, margin, yPos); yPos += 6;
+      doc.text(`Type d'entrée : ${inputType}`, margin, yPos); yPos += 6;
+      doc.text(`Date d'analyse : ${analysisDate}`, margin, yPos); yPos += 6;
+      doc.text(`Date du rapport : ${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR')}`, margin, yPos); yPos += 6;
+      doc.text(`Version du rapport : V1.0`, margin, yPos); yPos += 12;
+
+      // Ligne séparatrice
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      // ===== RÉSUMÉ EXÉCUTIF =====
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Résumé Exécutif', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      const criticalCount = genesWithPriority.filter(g => g.priority === 'CRITICAL').length;
+      const highCount = genesWithPriority.filter(g => g.priority === 'HIGH').length;
+
+      doc.text(`Cette analyse a identifié des gènes de résistance aux antimicrobiens dans l'échantillon ${sampleId}.`, margin, yPos);
+      yPos += 8;
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Résultats principaux :', margin, yPos);
+      yPos += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.text(`• ${criticalHighGenes.length} gène(s) de priorité CRITICAL ou HIGH identifié(s)`, margin + 5, yPos); yPos += 5;
+      doc.text(`• ${criticalCount} gène(s) CRITICAL`, margin + 5, yPos); yPos += 5;
+      doc.text(`• ${highCount} gène(s) HIGH`, margin + 5, yPos); yPos += 5;
+      doc.text(`• ${resistances.length} classe(s) d'antibiotiques concernée(s)`, margin + 5, yPos); yPos += 12;
+
+      // Ligne séparatrice
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      // ===== MATÉRIELS ET MÉTHODES =====
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('1. Matériels et Méthodes', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(11);
+      doc.text('1.1 Pipeline Bioinformatique', margin, yPos);
+      yPos += 6;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('• Contrôle qualité : FastQC, fastp', margin + 5, yPos); yPos += 5;
+      doc.text('• Assemblage : SPAdes / MEGAHIT', margin + 5, yPos); yPos += 5;
+      doc.text('• Annotation : Prokka', margin + 5, yPos); yPos += 5;
+      doc.text('• Classification taxonomique : NCBI Taxonomy', margin + 5, yPos); yPos += 8;
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('1.2 Détection ARG', margin, yPos);
+      yPos += 6;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('• AMRFinderPlus (NCBI)', margin + 5, yPos); yPos += 5;
+      doc.text('• ResFinder', margin + 5, yPos); yPos += 5;
+      doc.text('• CARD (Comprehensive Antibiotic Resistance Database)', margin + 5, yPos); yPos += 5;
+      doc.text('• Abricate (bases multiples)', margin + 5, yPos); yPos += 12;
+
+      // Ligne séparatrice
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      // ===== RÉSULTATS - GÈNES CRITICAL ET HIGH =====
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('2. Résultats - Gènes Prioritaires (CRITICAL & HIGH)', margin, yPos);
+      yPos += 10;
+
+      if (criticalHighGenes.length > 0) {
+        // Tableau des gènes
+        const tableData = criticalHighGenes.map(g => [
+          g.gene || '-',
+          g.priority || '-',
+          g.resistance || '-',
+          g.source || (g.sources ? g.sources.join(', ') : '-'),
+          g.identity ? `${parseFloat(g.identity).toFixed(1)}%` : '-'
+        ]);
+
+        doc.autoTable({
+          startY: yPos,
+          head: [['Gène', 'Priorité', 'Résistance', 'Source', 'Identité']],
+          body: tableData,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [30, 58, 138],
+            textColor: 255,
+            fontStyle: 'bold',
+            fontSize: 9
+          },
+          bodyStyles: {
+            fontSize: 8
+          },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 30 },
+            1: { cellWidth: 22 },
+            2: { cellWidth: 'auto', overflow: 'linebreak' },
+            3: { cellWidth: 30 },
+            4: { cellWidth: 20 }
+          },
+          margin: { left: margin, right: margin },
+          didDrawCell: function(data) {
+            // Colorer les priorités
+            if (data.column.index === 1 && data.cell.section === 'body') {
+              const priority = data.cell.raw;
+              if (priority === 'CRITICAL') {
+                doc.setTextColor(220, 38, 38); // Rouge
+              } else if (priority === 'HIGH') {
+                doc.setTextColor(234, 88, 12); // Orange
+              }
+            }
+          }
+        });
+
+        yPos = doc.lastAutoTable.finalY + 10;
+      } else {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text('Aucun gène de priorité CRITICAL ou HIGH détecté.', margin, yPos);
+        yPos += 10;
+      }
+
+      // Vérifier si on a besoin d'une nouvelle page
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      // ===== ANTIBIOTIQUES CONCERNÉS =====
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('3. Classes d\'Antibiotiques Concernées', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      if (resistances.length > 0) {
+        resistances.forEach((r, i) => {
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+          const genesForResistance = criticalHighGenes.filter(g => g.resistance === r);
+          const text = `• ${r} (${genesForResistance.length} gène(s))`;
+          const maxWidth = pageWidth - margin * 2 - 5;
+          const lines = doc.splitTextToSize(text, maxWidth);
+          lines.forEach(line => {
+            if (yPos > 270) {
+              doc.addPage();
+              yPos = 20;
+            }
+            doc.text(line, margin + 5, yPos);
+            yPos += 5;
+          });
+        });
+      } else {
+        doc.setFont('helvetica', 'italic');
+        doc.text('Aucune classe d\'antibiotique identifiée.', margin, yPos);
+      }
+      yPos += 10;
+
+      // Vérifier si on a besoin d'une nouvelle page
+      if (yPos > 230) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      // ===== CONCLUSIONS =====
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('4. Conclusions et Recommandations', margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      if (criticalHighGenes.length > 0) {
+        doc.text(`L'analyse a révélé ${criticalHighGenes.length} gène(s) de résistance de haute priorité.`, margin, yPos);
+        yPos += 6;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Recommandations :', margin, yPos);
+        yPos += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.text('• Confirmation par méthodes phénotypiques recommandée', margin + 5, yPos); yPos += 5;
+        doc.text('• Adapter l\'antibiothérapie en fonction des résistances identifiées', margin + 5, yPos); yPos += 5;
+        doc.text('• Surveillance épidémiologique si gènes transférables détectés', margin + 5, yPos); yPos += 5;
+      } else {
+        doc.text('Aucun gène de résistance de haute priorité détecté dans cet échantillon.', margin, yPos);
+        yPos += 6;
+      }
+
+      yPos += 15;
+
+      // ===== PIED DE PAGE =====
+      // Ligne séparatrice
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 8;
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(100, 100, 100);
+      doc.text('MEGAM ARG Detection Pipeline v3.2', margin, yPos);
+      yPos += 4;
+      doc.text('Contact : rachid.merah77@gmail.com | WhatsApp : +213 556 146 653', margin, yPos);
+
+      // Numéros de page
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Page ${i} / ${pageCount}`, pageWidth - margin - 20, doc.internal.pageSize.getHeight() - 10);
+      }
+
+      // Télécharger le PDF
+      const fileName = `Rapport_ARG_${sampleId}_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+    }
+
+    // ===== SYNCHRONISATION SCROLL HAUT/BAS DU TABLEAU =====
+    function setupTopScroll() {
+      const topScroll = document.getElementById('top-scroll');
+      const tableScroll = document.getElementById('table-scroll');
+      const topInner = document.getElementById('top-scroll-inner');
+      if (!topScroll || !tableScroll || !topInner) return;
+
+      // Ajuster la largeur du div interne pour correspondre au tableau
+      function syncWidth() {
+        topInner.style.width = tableScroll.scrollWidth + 'px';
+        // Cacher la barre du haut si pas de scroll nécessaire
+        topScroll.style.display = tableScroll.scrollWidth > tableScroll.clientWidth ? '' : 'none';
+      }
+
+      // Synchroniser le scroll dans les deux sens
+      let syncing = false;
+      topScroll.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        tableScroll.scrollLeft = topScroll.scrollLeft;
+        syncing = false;
+      });
+      tableScroll.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        topScroll.scrollLeft = tableScroll.scrollLeft;
+        syncing = false;
+      });
+
+      // Mettre à jour la largeur au chargement et au resize
+      syncWidth();
+      new ResizeObserver(syncWidth).observe(tableScroll);
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+      checkBackendConnection();
+      init().then(() => setupTopScroll());
+      checkRunningJobs();
+      refreshOutputFiles();
+      setInterval(checkRunningJobs, 10000);
+    });
+  </script>
+</body>
+</html>

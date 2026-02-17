@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>MEGAM ARG Detection - Nouvelle Analyse</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+  <!-- HEADER -->
+  <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+      </div>
+      <nav class="flex gap-1 items-center">
+        <a id="running-jobs-indicator" href="#" class="hidden bg-orange-500 text-white px-3 py-2 rounded font-medium hover:bg-orange-600 transition items-center gap-2 animate-pulse">
+          <span class="animate-spin">⚙️</span> <span id="running-count">0</span> en cours
+        </a>
+        <a href="form_launch_analysis.html" class="bg-white text-blue-900 px-4 py-2 rounded font-medium hover:bg-blue-100 transition text-sm">
+          Nouvelle Analyse
+        </a>
+        <a href="jobs_list.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Historique
+        </a>
+        <a href="databases.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Bases de données
+        </a>
+        <a href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Dashboard
+        </a>
+        <button onclick="openAboutModal()" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          À propos
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-6 py-8">
+
+    <!-- Titre -->
+    <div class="text-center mb-8">
+      <h2 class="text-3xl font-bold text-gray-800 mb-2">🧬 Nouvelle Analyse ARG</h2>
+      <p class="text-gray-600">Lancez une analyse de détection des gènes de résistance aux antimicrobiens</p>
+    </div>
+
+    <!-- Formulaire -->
+    <form id="analysis-form" class="bg-white rounded-lg shadow-lg p-8">
+
+      <!-- Sample ID -->
+      <div class="mb-6">
+        <label class="block text-sm font-semibold text-gray-700 mb-2">
+          Identifiant de l'échantillon *
+        </label>
+        <div class="flex gap-2">
+          <input type="text" id="sample_id" required
+                 class="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                 placeholder="Ex: SRR28083254, CP133916.1, GCA_025717695.1">
+          <label class="flex items-center gap-2 bg-gray-100 border border-gray-300 rounded-lg px-4 py-3 cursor-pointer hover:bg-gray-200 transition whitespace-nowrap">
+            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            <span class="text-sm font-semibold text-gray-700">Upload</span>
+            <input type="file" id="file_upload" accept=".fasta,.fa,.fna,.fastq,.fq,.gz" class="hidden">
+          </label>
+        </div>
+        <p class="text-sm text-gray-500 mt-2">
+          Formats supportés: SRA (SRR*), GenBank (CP*, NC*), Assembly (GCA*), ou <strong>uploadez un fichier FASTA/FASTQ</strong>
+        </p>
+        <!-- Upload progress -->
+        <div id="upload-status" class="hidden mt-2 p-3 rounded-lg border">
+          <div class="flex items-center gap-2">
+            <span id="upload-icon" class="text-lg">⏳</span>
+            <span id="upload-text" class="text-sm text-gray-600">Upload en cours...</span>
+          </div>
+          <div id="upload-progress-bar" class="mt-2 w-full bg-gray-200 rounded-full h-2 hidden">
+            <div id="upload-progress" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Type détecté -->
+      <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200" id="detected-type-box" style="display: none;">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl" id="type-icon">📦</span>
+          <div>
+            <p class="text-sm text-blue-600 font-semibold">Type détecté automatiquement</p>
+            <p class="text-lg font-bold text-blue-900" id="detected-type">-</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Options avancées -->
+      <div class="mb-6">
+        <button type="button" onclick="toggleAdvanced()" class="text-blue-600 font-semibold hover:underline flex items-center gap-2">
+          <span id="advanced-arrow">▶</span> Options avancées
+        </button>
+
+        <div id="advanced-options" class="hidden mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
+
+          <!-- Threads -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Nombre de threads</label>
+            <select id="threads" class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500">
+              <option value="4">4 threads</option>
+              <option value="8" selected>8 threads (recommandé)</option>
+              <option value="16">16 threads</option>
+              <option value="32">32 threads</option>
+            </select>
+          </div>
+
+          <!-- Prokka Mode -->
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">Mode Prokka</label>
+            <select id="prokka_mode" class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500">
+              <option value="auto" selected>Auto (détection automatique)</option>
+              <option value="generic">Generic</option>
+              <option value="ecoli">E. coli</option>
+            </select>
+          </div>
+
+          <!-- Force -->
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="force" class="w-4 h-4 text-blue-600 rounded">
+            <label for="force" class="text-sm text-gray-700">Forcer la ré-exécution même si des résultats existent</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bouton Submit -->
+      <button type="submit" id="submit-btn"
+              class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
+        <span>🚀</span> Lancer l'analyse
+      </button>
+
+      <!-- Message d'erreur -->
+      <div id="error-message" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700"></div>
+
+    </form>
+
+    <!-- Aide -->
+    <div class="mt-8 bg-white rounded-lg shadow p-6">
+      <h3 class="text-lg font-bold text-gray-800 mb-4">📋 Types d'entrée supportés</h3>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+          <p class="font-bold text-green-800">🧪 SRA (Reads bruts)</p>
+          <p class="text-sm text-green-700">Ex: SRR28083254, SRR19561143</p>
+          <p class="text-xs text-green-600 mt-1">Pipeline complet: QC → Assemblage → Annotation → ARG</p>
+        </div>
+        <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p class="font-bold text-blue-800">🧬 GenBank (Génome complet)</p>
+          <p class="text-sm text-blue-700">Ex: CP133916.1, NC_000913.3</p>
+          <p class="text-xs text-blue-600 mt-1">Annotation → ARG (pas d'assemblage)</p>
+        </div>
+        <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+          <p class="font-bold text-purple-800">📦 Assembly (Assemblage NCBI)</p>
+          <p class="text-sm text-purple-700">Ex: GCA_025717695.1, GCF_000005845.2</p>
+          <p class="text-xs text-purple-600 mt-1">Annotation → ARG (pas d'assemblage)</p>
+        </div>
+        <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
+          <p class="font-bold text-orange-800">📁 Fichier local</p>
+          <p class="text-sm text-orange-700">Ex: /chemin/vers/genome.fasta</p>
+          <p class="text-xs text-orange-600 mt-1">FASTA ou FASTQ local</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
+      <div class="text-center">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-20 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">MEGAM ARG Detection WEB</h2>
+        <p class="text-gray-600 mb-6">Pipeline de Détection des Gènes de Résistance aux Antimicrobiens</p>
+
+        <div class="bg-blue-50 rounded-lg p-4 mb-6">
+          <p class="text-sm text-gray-600 mb-2">Développé par</p>
+          <p class="text-lg font-bold text-blue-900">Rachid Merah</p>
+          <a href="mailto:rachid.merah77@gmail.com" class="text-blue-600 hover:underline block">rachid.merah77@gmail.com</a>
+          <a href="https://wa.me/213556146653" target="_blank" class="text-green-600 hover:underline flex items-center justify-center gap-1 mt-2">
+            <span>📱</span> +213 556 146 653 (WhatsApp)
+          </a>
+        </div>
+
+        <p class="text-sm text-gray-600 mb-4 px-4">
+          Contactez-moi pour signaler un bug ou proposer des améliorations.
+        </p>
+
+        <a href="https://github.com/rmerah/MEGAM-ARG-detection" target="_blank" class="inline-flex items-center gap-2 text-gray-700 hover:text-black font-semibold mb-4">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+
+        <p class="text-sm text-gray-500 mb-6">Version 3.2</p>
+
+        <button onclick="closeAboutModal()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="api-client.js"></script>
+  <script>
+    // Détection automatique du type
+    document.getElementById('sample_id').addEventListener('input', function(e) {
+      const value = e.target.value.trim();
+      const box = document.getElementById('detected-type-box');
+      const typeEl = document.getElementById('detected-type');
+      const iconEl = document.getElementById('type-icon');
+
+      if (!value) {
+        box.style.display = 'none';
+        return;
+      }
+
+      let type = '';
+      let icon = '';
+
+      if (/^SRR\d+$/i.test(value) || /^ERR\d+$/i.test(value) || /^DRR\d+$/i.test(value)) {
+        type = 'SRA (Reads bruts)';
+        icon = '🧪';
+      } else if (/^(CP|NC|NZ_)\d+/i.test(value)) {
+        type = 'GenBank (Génome complet)';
+        icon = '🧬';
+      } else if (/^GC[AF]_\d+/i.test(value)) {
+        type = 'Assembly (Assemblage NCBI)';
+        icon = '📦';
+      } else if (value.includes('/') || value.endsWith('.fasta') || value.endsWith('.fa') || value.endsWith('.fastq')) {
+        type = 'Fichier local';
+        icon = '📁';
+      } else {
+        box.style.display = 'none';
+        return;
+      }
+
+      typeEl.textContent = type;
+      iconEl.textContent = icon;
+      box.style.display = 'block';
+    });
+
+    // Toggle options avancées
+    function toggleAdvanced() {
+      const options = document.getElementById('advanced-options');
+      const arrow = document.getElementById('advanced-arrow');
+      if (options.classList.contains('hidden')) {
+        options.classList.remove('hidden');
+        arrow.textContent = '▼';
+      } else {
+        options.classList.add('hidden');
+        arrow.textContent = '▶';
+      }
+    }
+
+    // Upload de fichier
+    document.getElementById('file_upload').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const statusDiv = document.getElementById('upload-status');
+      const uploadIcon = document.getElementById('upload-icon');
+      const uploadText = document.getElementById('upload-text');
+      const progressBar = document.getElementById('upload-progress-bar');
+      const progress = document.getElementById('upload-progress');
+
+      // Afficher le statut
+      statusDiv.classList.remove('hidden');
+      statusDiv.className = 'mt-2 p-3 rounded-lg border border-blue-200 bg-blue-50';
+      uploadIcon.textContent = '⏳';
+      uploadText.textContent = `Upload de ${file.name} en cours...`;
+      progressBar.classList.remove('hidden');
+      progress.style.width = '30%';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        progress.style.width = '60%';
+        const response = await fetch(`${API_BASE_URL}/api/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        progress.style.width = '90%';
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Erreur lors de l\'upload');
+        }
+
+        progress.style.width = '100%';
+
+        // Remplir le champ sample_id avec le chemin du fichier
+        document.getElementById('sample_id').value = data.path;
+        document.getElementById('sample_id').dispatchEvent(new Event('input'));
+
+        // Succès
+        statusDiv.className = 'mt-2 p-3 rounded-lg border border-green-200 bg-green-50';
+        uploadIcon.textContent = '✅';
+        uploadText.textContent = `${file.name} uploadé avec succès (${(data.size / 1024).toFixed(1)} Ko)`;
+        progressBar.classList.add('hidden');
+
+      } catch (error) {
+        statusDiv.className = 'mt-2 p-3 rounded-lg border border-red-200 bg-red-50';
+        uploadIcon.textContent = '❌';
+        uploadText.textContent = `Erreur : ${error.message}`;
+        progressBar.classList.add('hidden');
+      }
+
+      // Reset input file pour permettre re-upload du même fichier
+      e.target.value = '';
+    });
+
+    // Soumission du formulaire
+    document.getElementById('analysis-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const sampleId = document.getElementById('sample_id').value.trim();
+      const threads = parseInt(document.getElementById('threads').value);
+      const prokkaMode = document.getElementById('prokka_mode').value;
+      const force = document.getElementById('force').checked;
+
+      const submitBtn = document.getElementById('submit-btn');
+      const errorDiv = document.getElementById('error-message');
+
+      // Validation
+      if (!sampleId) {
+        showError('Veuillez entrer un identifiant d\'échantillon');
+        return;
+      }
+
+      // Loading state
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="animate-spin">⏳</span> Lancement en cours...';
+      errorDiv.classList.add('hidden');
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/launch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sample_id: sampleId,
+            threads: threads,
+            prokka_mode: prokkaMode,
+            force: force
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Erreur lors du lancement');
+        }
+
+        // Succès - rediriger vers dashboard
+        window.location.href = `dashboard_monitoring.html?job_id=${data.job_id}`;
+
+      } catch (error) {
+        console.error('Erreur:', error);
+        showError(error.message);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🚀</span> Lancer l\'analyse';
+      }
+    });
+
+    function showError(message) {
+      const errorDiv = document.getElementById('error-message');
+      errorDiv.textContent = '❌ ' + message;
+      errorDiv.classList.remove('hidden');
+    }
+
+    // About Modal
+    function openAboutModal() {
+      document.getElementById('about-modal').classList.remove('hidden');
+    }
+
+    function closeAboutModal() {
+      document.getElementById('about-modal').classList.add('hidden');
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAboutModal();
+    });
+
+    // Check for running jobs
+    async function checkRunningJobs() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs?limit=50`);
+        const data = await response.json();
+        const runningJobs = data.jobs.filter(j => j.status === 'RUNNING');
+
+        const indicator = document.getElementById('running-jobs-indicator');
+        const countEl = document.getElementById('running-count');
+
+        if (runningJobs.length > 0) {
+          indicator.classList.remove('hidden');
+          indicator.classList.add('flex');
+          countEl.textContent = runningJobs.length;
+          indicator.href = `dashboard_monitoring.html?job_id=${runningJobs[0].job_id}`;
+        } else {
+          indicator.classList.add('hidden');
+          indicator.classList.remove('flex');
+        }
+      } catch (error) {
+        console.error('Error checking running jobs:', error);
+      }
+    }
+
+    // Check running jobs on page load and periodically
+    checkBackendConnection();
+    checkRunningJobs();
+    setInterval(checkRunningJobs, 10000);
+  </script>
+</body>
+</html>

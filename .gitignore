@@ -1,0 +1,30 @@
+# Environnement
+.env
+*.pyc
+__pycache__/
+venv/
+
+# Base de données
+*.db
+jobs.db
+
+# Données pipeline
+src/pipeline/databases/
+src/pipeline/outputs/
+src/pipeline/data/
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Installeur Windows (artefacts de build)
+installer/Output/
+installer/*.exe

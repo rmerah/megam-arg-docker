@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>MEGAM ARG Detection - Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .animate-pulse-slow { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+  <!-- HEADER -->
+  <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+      </div>
+      <nav class="flex gap-1 items-center">
+        <a id="running-jobs-indicator" href="#" class="hidden bg-orange-500 text-white px-3 py-2 rounded font-medium hover:bg-orange-600 transition items-center gap-2 animate-pulse">
+          <span class="animate-spin">⚙️</span> <span id="running-count">0</span> en cours
+        </a>
+        <a href="form_launch_analysis.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Nouvelle Analyse
+        </a>
+        <a href="jobs_list.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Historique
+        </a>
+        <a href="databases.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Bases de données
+        </a>
+        <a href="dashboard_monitoring.html" class="bg-white text-blue-900 px-4 py-2 rounded font-medium hover:bg-blue-100 transition text-sm">
+          Dashboard
+        </a>
+        <button onclick="openAboutModal()" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          À propos
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Sélecteur de Job (pour voir les anciens) -->
+    <section class="bg-white rounded-lg shadow p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-800">Sélectionner un Job</h2>
+        <button onclick="loadJobsList()" class="text-blue-600 hover:underline text-sm">🔄 Rafraîchir</button>
+      </div>
+      <div class="flex gap-4 items-end">
+        <div class="flex-1">
+          <label class="block text-sm font-medium text-gray-600 mb-1">Job ID</label>
+          <select id="job-selector" class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500" onchange="loadSelectedJob()">
+            <option value="">-- Chargement des jobs --</option>
+          </select>
+        </div>
+        <button onclick="loadSelectedJob()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700">
+          Charger
+        </button>
+      </div>
+    </section>
+
+    <!-- Status Overview -->
+    <section class="bg-white rounded-lg shadow p-6 mb-6">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="text-center p-4 bg-gray-50 rounded">
+          <p class="text-xs text-gray-500 uppercase font-bold">Sample ID</p>
+          <p class="text-lg font-bold text-gray-900" id="sample-id">-</p>
+        </div>
+        <div class="text-center p-4 bg-gray-50 rounded">
+          <p class="text-xs text-gray-500 uppercase font-bold">Status</p>
+          <p class="text-lg font-bold" id="job-status">-</p>
+        </div>
+        <div class="text-center p-4 bg-gray-50 rounded">
+          <p class="text-xs text-gray-500 uppercase font-bold">Type</p>
+          <p class="text-lg font-bold text-gray-900" id="input-type">-</p>
+        </div>
+        <div class="text-center p-4 bg-gray-50 rounded">
+          <p class="text-xs text-gray-500 uppercase font-bold">Progress</p>
+          <p class="text-lg font-bold text-blue-600" id="progress">0%</p>
+        </div>
+        <div class="text-center p-4 bg-gray-50 rounded">
+          <p class="text-xs text-gray-500 uppercase font-bold">Durée</p>
+          <p class="text-lg font-bold text-gray-900" id="duration">-</p>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="mt-4">
+        <div class="h-4 bg-gray-200 rounded-full overflow-hidden">
+          <div id="progress-bar" class="h-full bg-blue-600 transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Current Step -->
+      <div class="mt-4 p-3 bg-blue-50 rounded border border-blue-200 flex items-center justify-between">
+        <p class="text-sm text-blue-800"><strong>Étape actuelle:</strong> <span id="current-step">En attente...</span></p>
+        <button id="stop-job-btn" onclick="stopCurrentJob()" class="hidden bg-red-600 text-white px-4 py-2 rounded font-semibold hover:bg-red-700 transition flex items-center gap-2">
+          <span>⏹️</span> Arrêter l'analyse
+        </button>
+      </div>
+    </section>
+
+    <!-- RESULTATS ARG (affiché même pendant l'exécution si disponible) -->
+    <section id="results-section" class="bg-white rounded-lg shadow p-6 mb-6 hidden">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-800">🧬 Résultats ARG Détectés</h2>
+        <a id="results-link" href="#" class="bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700 transition">
+          Voir Détails Complets →
+        </a>
+      </div>
+
+      <!-- Stats résumées -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div class="text-center p-3 bg-red-50 rounded border border-red-200">
+          <p class="text-2xl font-bold text-red-600" id="total-genes">0</p>
+          <p class="text-xs text-red-800">Gènes ARG</p>
+        </div>
+        <div class="text-center p-3 bg-orange-50 rounded border border-orange-200">
+          <p class="text-2xl font-bold text-orange-600" id="beta-lactam-count">0</p>
+          <p class="text-xs text-orange-800">Beta-Lactam</p>
+        </div>
+        <div class="text-center p-3 bg-purple-50 rounded border border-purple-200">
+          <p class="text-2xl font-bold text-purple-600" id="aminoglycoside-count">0</p>
+          <p class="text-xs text-purple-800">Aminoglycoside</p>
+        </div>
+        <div class="text-center p-3 bg-blue-50 rounded border border-blue-200">
+          <p class="text-2xl font-bold text-blue-600" id="other-count">0</p>
+          <p class="text-xs text-blue-800">Autres</p>
+        </div>
+      </div>
+
+      <!-- Tableau des gènes -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-3 py-2 text-left font-semibold">Gène</th>
+              <th class="px-3 py-2 text-left font-semibold">Résistance</th>
+              <th class="px-3 py-2 text-left font-semibold">Identité</th>
+              <th class="px-3 py-2 text-left font-semibold">Coverage</th>
+              <th class="px-3 py-2 text-left font-semibold">Source</th>
+            </tr>
+          </thead>
+          <tbody id="genes-table">
+            <!-- Rempli par JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Output Files Section -->
+    <section id="output-files-section" class="bg-white rounded-lg shadow overflow-hidden mb-6 hidden">
+      <div class="px-6 py-4 bg-gray-50 border-b flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-800">📁 Fichiers de Résultats</h2>
+        <div class="flex gap-2">
+          <button onclick="refreshOutputFiles()" class="text-blue-600 hover:underline text-sm">🔄 Rafraîchir</button>
+          <span class="text-sm text-gray-500" id="files-count">0 fichiers</span>
+        </div>
+      </div>
+
+      <!-- Statistiques fichiers -->
+      <div class="grid grid-cols-4 gap-2 p-4 bg-gray-50 border-b" id="files-stats">
+        <div class="text-center">
+          <p class="text-xl font-bold text-blue-600" id="total-files">0</p>
+          <p class="text-xs text-gray-500">Fichiers</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xl font-bold text-green-600" id="data-files">0</p>
+          <p class="text-xs text-gray-500">Données</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xl font-bold text-purple-600" id="report-files">0</p>
+          <p class="text-xs text-gray-500">Rapports</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xl font-bold text-gray-600" id="total-size">-</p>
+          <p class="text-xs text-gray-500">Taille totale</p>
+        </div>
+      </div>
+
+      <!-- Catégories de fichiers -->
+      <div class="p-4" id="output-files-categories">
+        <!-- Rempli par JS -->
+      </div>
+    </section>
+
+    <!-- Logs Section -->
+    <section class="bg-white rounded-lg shadow p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-800">📋 Logs Pipeline</h2>
+        <div class="flex gap-2">
+          <button onclick="clearLogs()" class="text-gray-500 hover:text-gray-700 text-sm">Effacer</button>
+          <span class="text-gray-400">|</span>
+          <span class="text-sm text-gray-500">Logs: <strong id="log-count">0</strong></span>
+        </div>
+      </div>
+      <div id="logs-container" class="h-64 overflow-y-auto bg-gray-900 text-green-400 p-4 rounded font-mono text-xs">
+        <p class="text-gray-500">En attente des logs...</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- File Viewer Modal -->
+  <div id="file-viewer-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden z-50" style="display: none;">
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative">
+
+        <!-- Bouton X en haut à droite -->
+        <button onclick="closeFileViewer()" class="absolute -top-3 -right-3 bg-red-600 text-white w-10 h-10 rounded-full font-bold text-xl hover:bg-red-700 transition shadow-lg z-10">
+          ✕
+        </button>
+
+        <!-- Header -->
+        <div class="px-6 py-4 border-b bg-gray-100 rounded-t-lg">
+          <div class="flex items-center justify-between">
+            <div class="flex-1 mr-4">
+              <h3 class="text-lg font-bold text-gray-800" id="file-viewer-title">Fichier</h3>
+              <p class="text-sm text-gray-500 truncate" id="file-viewer-path">-</p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              <a id="file-download-btn" href="#" download class="bg-green-600 text-white px-4 py-2 rounded font-semibold hover:bg-green-700 transition text-sm flex items-center gap-1">
+                📥 Télécharger
+              </a>
+              <button onclick="printFile()" class="bg-blue-600 text-white px-4 py-2 rounded font-semibold hover:bg-blue-700 transition text-sm flex items-center gap-1">
+                🖨️ Imprimer
+              </button>
+              <button onclick="closeFileViewer()" class="bg-gray-500 text-white px-4 py-2 rounded font-semibold hover:bg-gray-600 transition text-sm">
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contenu -->
+        <div class="flex-1 overflow-auto p-4 bg-gray-50" id="file-viewer-container">
+          <div id="file-viewer-content-wrapper" class="bg-white border rounded-lg p-4 shadow-inner min-h-64">
+            <pre id="file-viewer-content" class="text-sm font-mono whitespace-pre-wrap break-words text-gray-800 leading-relaxed"></pre>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 py-3 border-t bg-gray-100 rounded-b-lg flex items-center justify-between">
+          <span id="file-viewer-info" class="text-sm text-gray-600">-</span>
+          <button onclick="closeFileViewer()" class="bg-gray-200 text-gray-700 px-6 py-2 rounded font-semibold hover:bg-gray-300 transition">
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
+      <div class="text-center">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-20 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">MEGAM ARG Detection WEB</h2>
+        <p class="text-gray-600 mb-6">Pipeline de Détection des Gènes de Résistance aux Antimicrobiens</p>
+
+        <div class="bg-blue-50 rounded-lg p-4 mb-6">
+          <p class="text-sm text-gray-600 mb-2">Développé par</p>
+          <p class="text-lg font-bold text-blue-900">Rachid Merah</p>
+          <a href="mailto:rachid.merah77@gmail.com" class="text-blue-600 hover:underline block">rachid.merah77@gmail.com</a>
+          <a href="https://wa.me/213556146653" target="_blank" class="text-green-600 hover:underline flex items-center justify-center gap-1 mt-2">
+            <span>📱</span> +213 556 146 653 (WhatsApp)
+          </a>
+        </div>
+
+        <p class="text-sm text-gray-600 mb-4 px-4">
+          Contactez-moi pour signaler un bug ou proposer des améliorations.
+        </p>
+
+        <a href="https://github.com/rmerah/MEGAM-ARG-detection" target="_blank" class="inline-flex items-center gap-2 text-gray-700 hover:text-black font-semibold mb-4">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+
+        <p class="text-sm text-gray-500 mb-6">Version 3.2</p>
+
+        <button onclick="closeAboutModal()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="api-client.js"></script>
+  <script>
+    let currentJobId = null;
+    let pollingInterval = null;
+    let logs = [];
+
+    // ===== API FUNCTIONS =====
+    async function apiCall(endpoint, options = {}) {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          ...options.headers
+        }
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+      }
+      return response.json();
+    }
+
+    // ===== INIT =====
+    async function init() {
+      console.log('🚀 Dashboard init');
+
+      // Charger liste des jobs
+      await loadJobsList();
+
+      // Vérifier si job_id dans URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const jobIdFromUrl = urlParams.get('job_id');
+
+      if (jobIdFromUrl) {
+        document.getElementById('job-selector').value = jobIdFromUrl;
+        currentJobId = jobIdFromUrl;
+        await loadJobData(jobIdFromUrl);
+        startPolling();
+      }
+    }
+
+    // ===== CHARGER LISTE DES JOBS =====
+    async function loadJobsList() {
+      try {
+        const data = await apiCall('/api/jobs?limit=20');
+        const selector = document.getElementById('job-selector');
+
+        selector.innerHTML = '<option value="">-- Sélectionner un job --</option>';
+
+        data.jobs.forEach(job => {
+          const option = document.createElement('option');
+          option.value = job.job_id;
+          const statusIcon = job.status === 'COMPLETED' ? '✅' : job.status === 'RUNNING' ? '🔄' : job.status === 'FAILED' ? '❌' : '⏳';
+          const date = new Date(job.created_at).toLocaleString('fr-FR');
+          option.textContent = `${statusIcon} ${job.sample_id} - ${job.status} (${date})`;
+          selector.appendChild(option);
+        });
+
+        console.log(`✅ ${data.jobs.length} jobs chargés`);
+      } catch (error) {
+        console.error('❌ Erreur chargement jobs:', error);
+        addLog('ERROR', `Erreur API: ${error.message}`);
+      }
+    }
+
+    // ===== CHARGER JOB SÉLECTIONNÉ =====
+    async function loadSelectedJob() {
+      const selector = document.getElementById('job-selector');
+      const jobId = selector.value;
+
+      if (!jobId) {
+        alert('Veuillez sélectionner un job');
+        return;
+      }
+
+      // Arrêter polling précédent
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+
+      currentJobId = jobId;
+      logs = [];
+      renderLogs();
+
+      // Mettre à jour URL
+      window.history.pushState({}, '', `?job_id=${jobId}`);
+
+      await loadJobData(jobId);
+      startPolling();
+    }
+
+    // ===== CHARGER DONNÉES JOB =====
+    async function loadJobData(jobId) {
+      try {
+        addLog('INFO', `Chargement job ${jobId}...`);
+
+        // 1. Charger status
+        const status = await apiCall(`/api/status/${jobId}`);
+        updateStatusUI(status);
+
+        // 2. Si completed ou running, charger résultats
+        if (status.status === 'COMPLETED' || status.progress > 50) {
+          try {
+            const results = await apiCall(`/api/results/${jobId}`);
+            updateResultsUI(results);
+          } catch (e) {
+            console.log('Résultats pas encore disponibles');
+          }
+        }
+
+        addLog('SUCCESS', `Job ${status.sample_id} chargé (${status.status})`);
+
+      } catch (error) {
+        console.error('Erreur:', error);
+        addLog('ERROR', `Erreur: ${error.message}`);
+      }
+    }
+
+    // ===== UPDATE STATUS UI =====
+    function updateStatusUI(status) {
+      document.getElementById('sample-id').textContent = status.sample_id || '-';
+      document.getElementById('input-type').textContent = (status.input_type || '-').toUpperCase();
+      document.getElementById('progress').textContent = `${status.progress || 0}%`;
+      document.getElementById('progress-bar').style.width = `${status.progress || 0}%`;
+      document.getElementById('current-step').textContent = status.current_step || 'En attente...';
+
+      // Status avec couleur
+      const statusEl = document.getElementById('job-status');
+      statusEl.textContent = status.status;
+      statusEl.className = 'text-lg font-bold ' + getStatusColor(status.status);
+
+      // Progress bar color
+      const progressBar = document.getElementById('progress-bar');
+      if (status.status === 'COMPLETED') {
+        progressBar.className = 'h-full bg-green-500 transition-all duration-500';
+      } else if (status.status === 'FAILED') {
+        progressBar.className = 'h-full bg-red-500 transition-all duration-500';
+      } else {
+        progressBar.className = 'h-full bg-blue-600 transition-all duration-500';
+      }
+
+      // Durée
+      if (status.started_at) {
+        const start = new Date(status.started_at);
+        const end = status.completed_at ? new Date(status.completed_at) : new Date();
+        const diffSec = Math.floor((end - start) / 1000);
+        const min = Math.floor(diffSec / 60);
+        const sec = diffSec % 60;
+        document.getElementById('duration').textContent = `${min}m ${sec}s`;
+      }
+
+      // Logs preview
+      if (status.logs_preview) {
+        const lines = status.logs_preview.split('\n').filter(l => l.trim()).slice(-10);
+        lines.forEach(line => {
+          if (!logs.some(l => l.message === line)) {
+            const level = line.includes('[ERROR]') ? 'ERROR' : line.includes('[WARN]') ? 'WARN' : 'INFO';
+            addLog(level, line);
+          }
+        });
+      }
+
+      // Bouton arrêt - visible seulement si RUNNING
+      const stopBtn = document.getElementById('stop-job-btn');
+      if (status.status === 'RUNNING') {
+        stopBtn.classList.remove('hidden');
+        stopBtn.classList.add('flex');
+      } else {
+        stopBtn.classList.add('hidden');
+        stopBtn.classList.remove('flex');
+      }
+
+      // Charger les fichiers si complété
+      if (status.status === 'COMPLETED' || status.status === 'FAILED') {
+        refreshOutputFiles();
+      }
+    }
+
+    // ===== UPDATE RESULTS UI =====
+    function updateResultsUI(results) {
+      const section = document.getElementById('results-section');
+      section.classList.remove('hidden');
+
+      // Lien vers page résultats
+      document.getElementById('results-link').href = `page_results_arg.html?job_id=${results.job_id}`;
+
+      // Collecter tous les gènes
+      let allGenes = [];
+
+      if (results.arg_detection) {
+        if (results.arg_detection.amrfinderplus && results.arg_detection.amrfinderplus.genes) {
+          allGenes = allGenes.concat(results.arg_detection.amrfinderplus.genes.map(g => ({...g, source: 'AMRFinder'})));
+        }
+        if (results.arg_detection.resfinder && results.arg_detection.resfinder.genes) {
+          const rfGenes = results.arg_detection.resfinder.genes.filter(g => g.gene && g.gene.trim());
+          allGenes = allGenes.concat(rfGenes.map(g => ({...g, source: 'ResFinder'})));
+        }
+        if (results.arg_detection.card && results.arg_detection.card.genes) {
+          allGenes = allGenes.concat(results.arg_detection.card.genes.map(g => ({...g, source: 'CARD'})));
+        }
+      }
+
+      // Stats
+      document.getElementById('total-genes').textContent = allGenes.length;
+
+      let betaLactam = 0, aminoglycoside = 0, other = 0;
+      allGenes.forEach(g => {
+        const res = (g.resistance || '').toUpperCase();
+        if (res.includes('BETA-LACTAM') || res.includes('LACTAM')) betaLactam++;
+        else if (res.includes('AMINOGLYCOSIDE')) aminoglycoside++;
+        else other++;
+      });
+
+      document.getElementById('beta-lactam-count').textContent = betaLactam;
+      document.getElementById('aminoglycoside-count').textContent = aminoglycoside;
+      document.getElementById('other-count').textContent = other;
+
+      // Tableau
+      const tbody = document.getElementById('genes-table');
+      tbody.innerHTML = allGenes.slice(0, 20).map(g => `
+        <tr class="border-b hover:bg-gray-50">
+          <td class="px-3 py-2 font-semibold text-blue-700">${escapeHtml(g.gene || '-')}</td>
+          <td class="px-3 py-2"><span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">${escapeHtml(g.resistance || '-')}</span></td>
+          <td class="px-3 py-2">${g.identity ? g.identity.toFixed(1) + '%' : '-'}</td>
+          <td class="px-3 py-2">${g.coverage ? g.coverage.toFixed(1) + '%' : '-'}</td>
+          <td class="px-3 py-2 text-gray-500">${escapeHtml(g.source || '-')}</td>
+        </tr>
+      `).join('');
+
+      if (allGenes.length > 20) {
+        tbody.innerHTML += `<tr><td colspan="5" class="text-center py-2 text-gray-500">+ ${allGenes.length - 20} autres gènes...</td></tr>`;
+      }
+
+      addLog('SUCCESS', `${allGenes.length} gènes ARG détectés`);
+
+      // Afficher les fichiers de sortie
+      updateOutputFilesUI(results);
+    }
+
+    // ===== POLLING =====
+    function startPolling() {
+      if (pollingInterval) clearInterval(pollingInterval);
+
+      pollingInterval = setInterval(async () => {
+        if (!currentJobId) return;
+
+        try {
+          const status = await apiCall(`/api/status/${currentJobId}`);
+          updateStatusUI(status);
+
+          // Si terminé, charger résultats et arrêter polling
+          if (status.status === 'COMPLETED') {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+
+            const results = await apiCall(`/api/results/${currentJobId}`);
+            updateResultsUI(results);
+            addLog('SUCCESS', '✅ Analyse terminée avec succès!');
+
+          } else if (status.status === 'FAILED') {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+            addLog('ERROR', `❌ Analyse échouée: ${status.error_message || 'Erreur inconnue'}`);
+          }
+
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+      }, 3000);
+    }
+
+    // ===== LOGS =====
+    function addLog(level, message) {
+      const timestamp = new Date().toLocaleTimeString('fr-FR');
+      logs.push({ timestamp, level, message });
+      if (logs.length > 200) logs.shift();
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('logs-container');
+      document.getElementById('log-count').textContent = logs.length;
+
+      if (logs.length === 0) {
+        container.innerHTML = '<p class="text-gray-500">En attente des logs...</p>';
+        return;
+      }
+
+      const colors = {
+        'INFO': 'text-green-400',
+        'WARN': 'text-yellow-400',
+        'ERROR': 'text-red-400',
+        'SUCCESS': 'text-cyan-400'
+      };
+
+      container.innerHTML = logs.map(log =>
+        `<div class="${colors[log.level] || 'text-gray-400'}">[${escapeHtml(log.timestamp)}] [${escapeHtml(log.level)}] ${escapeHtml(log.message)}</div>`
+      ).join('');
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function clearLogs() {
+      logs = [];
+      renderLogs();
+    }
+
+    // ===== HELPERS =====
+    function getStatusColor(status) {
+      switch(status) {
+        case 'COMPLETED': return 'text-green-600';
+        case 'RUNNING': return 'text-blue-600';
+        case 'FAILED': return 'text-red-600';
+        case 'PENDING': return 'text-yellow-600';
+        default: return 'text-gray-600';
+      }
+    }
+
+    // ===== ABOUT MODAL =====
+    function openAboutModal() {
+      document.getElementById('about-modal').classList.remove('hidden');
+    }
+
+    function closeAboutModal() {
+      document.getElementById('about-modal').classList.add('hidden');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAboutModal();
+        closeFileViewer();
+      }
+    });
+
+    // ===== RUNNING JOBS INDICATOR =====
+    async function updateRunningJobsIndicator() {
+      try {
+        const data = await apiCall('/api/jobs?limit=50');
+        const runningJobs = data.jobs.filter(j => j.status === 'RUNNING' && j.job_id !== currentJobId);
+
+        const indicator = document.getElementById('running-jobs-indicator');
+        const countEl = document.getElementById('running-count');
+
+        if (runningJobs.length > 0) {
+          indicator.classList.remove('hidden');
+          indicator.classList.add('flex');
+          countEl.textContent = runningJobs.length;
+          indicator.href = `dashboard_monitoring.html?job_id=${runningJobs[0].job_id}`;
+        } else {
+          indicator.classList.add('hidden');
+          indicator.classList.remove('flex');
+        }
+      } catch (error) {
+        console.error('Error checking running jobs:', error);
+      }
+    }
+
+    // ===== STOP JOB =====
+    async function stopCurrentJob() {
+      if (!currentJobId) return;
+
+      if (!confirm('⚠️ Êtes-vous sûr de vouloir arrêter cette analyse ?\n\nCette action est irréversible.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${currentJobId}/stop`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          addLog('WARN', '⏹️ Analyse arrêtée par l\'utilisateur');
+          document.getElementById('stop-job-btn').classList.add('hidden');
+          await loadJobData(currentJobId);
+        } else {
+          addLog('ERROR', `Erreur: ${data.message || data.detail}`);
+        }
+      } catch (error) {
+        console.error('Erreur arrêt job:', error);
+        addLog('ERROR', `Erreur arrêt: ${error.message}`);
+      }
+    }
+
+    // ===== OUTPUT FILES =====
+    let currentOutputFiles = null;
+
+    async function refreshOutputFiles() {
+      if (!currentJobId) return;
+
+      try {
+        const data = await apiCall(`/api/jobs/${currentJobId}/files`);
+        currentOutputFiles = data;
+        updateOutputFilesUI(data);
+      } catch (error) {
+        console.error('Erreur chargement fichiers:', error);
+      }
+    }
+
+    function updateOutputFilesUI(data) {
+      const section = document.getElementById('output-files-section');
+
+      if (!data || !data.files || data.files.length === 0) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+
+      // Stats
+      document.getElementById('total-files').textContent = data.total_files;
+      document.getElementById('total-size').textContent = data.total_size;
+      document.getElementById('data-files').textContent = data.files.filter(f => f.type === 'data').length;
+      document.getElementById('report-files').textContent = data.files.filter(f => f.type === 'report').length;
+      document.getElementById('files-count').textContent = `${data.total_files} fichiers`;
+
+      // Catégories
+      const categoriesContainer = document.getElementById('output-files-categories');
+      const categoryNames = {
+        '01_quality_control': '🔬 Contrôle Qualité',
+        '02_assembly': '🧩 Assemblage',
+        '03_annotation': '📝 Annotation',
+        '04_arg_detection': '💊 Détection ARG',
+        '05_taxonomy': '🦠 Taxonomie',
+        '06_analysis': '📊 Analyses',
+        'logs': '📋 Logs',
+        'root': '📁 Racine'
+      };
+
+      const categoryIcons = {
+        '01_quality_control': '🔬',
+        '02_assembly': '🧩',
+        '03_annotation': '📝',
+        '04_arg_detection': '💊',
+        '05_taxonomy': '🦠',
+        '06_analysis': '📊',
+        'logs': '📋',
+        'root': '📁'
+      };
+
+      let html = '<div class="space-y-4">';
+
+      for (const [category, files] of Object.entries(data.categories)) {
+        const catName = categoryNames[category] || `📂 ${category}`;
+        const catIcon = categoryIcons[category] || '📂';
+
+        // Valider category pour utilisation dans id/onclick
+        const safeCat = /^[a-zA-Z0-9_]+$/.test(category) ? category : category.replace(/[^a-zA-Z0-9_]/g, '_');
+
+        html += `
+          <div class="border rounded-lg overflow-hidden">
+            <button onclick="toggleCategory('${safeCat}')" class="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 flex items-center justify-between transition">
+              <span class="font-semibold text-gray-800">${escapeHtml(catName)}</span>
+              <span class="text-sm text-gray-500">${files.length} fichiers</span>
+            </button>
+            <div id="cat-${safeCat}" class="hidden divide-y">
+              ${files.map(file => {
+                const safePath = escapeHtml(file.relative_path);
+                return `
+                <div class="px-4 py-2 hover:bg-blue-50 flex items-center justify-between cursor-pointer transition" onclick="viewFile('${safePath}')">
+                  <div class="flex items-center gap-3">
+                    <span class="text-lg">${escapeHtml(file.icon)}</span>
+                    <div>
+                      <p class="font-medium text-gray-800 text-sm">${escapeHtml(file.name)}</p>
+                      <p class="text-xs text-gray-500">${escapeHtml(file.size_human)}</p>
+                    </div>
+                  </div>
+                  <div class="flex gap-1">
+                    <button onclick="event.stopPropagation(); viewFile('${safePath}')" class="text-blue-600 hover:bg-blue-100 px-2 py-1 rounded text-xs" title="Voir">👁️</button>
+                    <a href="${API_BASE_URL}/api/jobs/${escapeHtml(currentJobId)}/files/download/${safePath}" download onclick="event.stopPropagation()" class="text-green-600 hover:bg-green-100 px-2 py-1 rounded text-xs" title="Télécharger">📥</a>
+                  </div>
+                </div>
+              `}).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      html += '</div>';
+      categoriesContainer.innerHTML = html;
+    }
+
+    function toggleCategory(category) {
+      const el = document.getElementById(`cat-${category}`);
+      if (el) {
+        el.classList.toggle('hidden');
+      }
+    }
+
+    async function viewFile(relativePath) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${currentJobId}/files/view/${relativePath}`);
+        const data = await response.json();
+
+        const modal = document.getElementById('file-viewer-modal');
+        document.getElementById('file-viewer-title').textContent = data.name || relativePath;
+        document.getElementById('file-viewer-path').textContent = relativePath;
+
+        const contentEl = document.getElementById('file-viewer-content');
+        const wrapperEl = document.getElementById('file-viewer-content-wrapper');
+
+        if (data.error) {
+          contentEl.innerHTML = `<span class="text-red-600">Erreur: ${escapeHtml(data.error)}</span>`;
+          wrapperEl.className = 'bg-red-50 border border-red-200 rounded-lg p-4 shadow-inner min-h-64';
+        } else {
+          // Formater le contenu selon le type de fichier
+          const ext = relativePath.split('.').pop().toLowerCase();
+          let formattedContent = data.content || '(fichier vide)';
+
+          // Pour les fichiers TSV/CSV, créer un tableau HTML
+          if (ext === 'tsv' || ext === 'csv') {
+            const delimiter = ext === 'tsv' ? '\t' : ',';
+            const lines = formattedContent.split('\n').filter(l => l.trim());
+            if (lines.length > 0) {
+              let tableHtml = '<table class="w-full text-xs border-collapse">';
+              lines.forEach((line, i) => {
+                const cells = line.split(delimiter);
+                const tag = i === 0 ? 'th' : 'td';
+                const bgClass = i === 0 ? 'bg-blue-100 font-bold' : (i % 2 === 0 ? 'bg-gray-50' : 'bg-white');
+                tableHtml += `<tr class="${bgClass}">`;
+                cells.forEach(cell => {
+                  tableHtml += `<${tag} class="border border-gray-300 px-2 py-1 text-left">${escapeHtml(cell.trim())}</${tag}>`;
+                });
+                tableHtml += '</tr>';
+              });
+              tableHtml += '</table>';
+              contentEl.innerHTML = tableHtml;
+              wrapperEl.className = 'bg-white border rounded-lg p-2 shadow-inner overflow-x-auto';
+            } else {
+              contentEl.textContent = formattedContent;
+              wrapperEl.className = 'bg-white border rounded-lg p-4 shadow-inner min-h-64';
+            }
+          } else {
+            // Fichier texte normal avec coloration syntaxique basique
+            contentEl.textContent = formattedContent;
+            wrapperEl.className = 'bg-gray-900 border rounded-lg p-4 shadow-inner min-h-64';
+            contentEl.className = 'text-sm font-mono whitespace-pre-wrap break-words text-green-400 leading-relaxed';
+          }
+        }
+
+        document.getElementById('file-viewer-info').textContent = data.truncated
+          ? `📄 Affichage ${data.lines_returned} lignes sur ${data.total_lines} (${data.size})`
+          : `📄 ${data.total_lines || 0} lignes (${data.size || '-'})`;
+
+        document.getElementById('file-download-btn').href = `${API_BASE_URL}/api/jobs/${currentJobId}/files/download/${relativePath}`;
+
+        // Afficher la modale
+        modal.style.display = 'block';
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Empêcher le scroll en arrière-plan
+
+      } catch (error) {
+        console.error('Erreur affichage fichier:', error);
+        alert('Erreur lors du chargement du fichier: ' + error.message);
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function closeFileViewer() {
+      const modal = document.getElementById('file-viewer-modal');
+      modal.style.display = 'none';
+      modal.classList.add('hidden');
+      document.body.style.overflow = ''; // Restaurer le scroll
+    }
+
+    function printFile() {
+      const content = document.getElementById('file-viewer-content').innerText || document.getElementById('file-viewer-content').textContent;
+      const title = document.getElementById('file-viewer-title').textContent;
+
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>${title}</title>
+            <style>
+              body { font-family: 'Courier New', monospace; font-size: 10px; white-space: pre-wrap; margin: 20px; line-height: 1.4; }
+              h1 { font-family: Arial, sans-serif; font-size: 16px; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+              table { border-collapse: collapse; width: 100%; font-size: 9px; }
+              th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+              th { background: #f0f0f0; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <h1>📄 ${title}</h1>
+            <pre>${content}</pre>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 250);
+    }
+
+    // ===== START =====
+    document.addEventListener('DOMContentLoaded', () => {
+      checkBackendConnection();
+      init();
+      updateRunningJobsIndicator();
+      setInterval(updateRunningJobsIndicator, 15000);
+    });
+  </script>
+</body>
+</html>

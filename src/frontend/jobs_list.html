@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>MEGAM ARG Detection - Historique Jobs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+  <!-- HEADER -->
+  <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+      </div>
+      <nav class="flex gap-1 items-center">
+        <a id="running-jobs-indicator" href="#" class="hidden bg-orange-500 text-white px-3 py-2 rounded font-medium hover:bg-orange-600 transition items-center gap-2 animate-pulse">
+          <span class="animate-spin">⚙️</span> <span id="running-count">0</span> en cours
+        </a>
+        <a href="form_launch_analysis.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Nouvelle Analyse
+        </a>
+        <a href="jobs_list.html" class="bg-white text-blue-900 px-4 py-2 rounded font-medium hover:bg-blue-100 transition text-sm">
+          Historique
+        </a>
+        <a href="databases.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Bases de données
+        </a>
+        <a href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Dashboard
+        </a>
+        <button onclick="openAboutModal()" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          À propos
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Filtres -->
+    <section class="bg-white rounded-lg shadow p-6 mb-6">
+      <div class="flex flex-wrap gap-4 items-center justify-between">
+        <div class="flex gap-2">
+          <button onclick="filterByStatus('')" class="filter-btn px-4 py-2 rounded font-semibold bg-blue-600 text-white">Tous</button>
+          <button onclick="filterByStatus('COMPLETED')" class="filter-btn px-4 py-2 rounded font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300">✅ Terminés</button>
+          <button onclick="filterByStatus('RUNNING')" class="filter-btn px-4 py-2 rounded font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300">🔄 En cours</button>
+          <button onclick="filterByStatus('FAILED')" class="filter-btn px-4 py-2 rounded font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300">❌ Échoués</button>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="loadJobs()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded font-semibold hover:bg-gray-200">
+            🔄 Rafraîchir
+          </button>
+          <button onclick="deleteAllJobs()" class="bg-red-100 text-red-700 px-4 py-2 rounded font-semibold hover:bg-red-200">
+            🗑️ Tout supprimer
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats rapides -->
+    <section class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-3xl font-bold text-blue-600" id="total-jobs">0</p>
+        <p class="text-sm text-gray-500">Total Jobs</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-3xl font-bold text-green-600" id="completed-jobs">0</p>
+        <p class="text-sm text-gray-500">Terminés</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-3xl font-bold text-yellow-600" id="running-jobs">0</p>
+        <p class="text-sm text-gray-500">En cours</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4 text-center">
+        <p class="text-3xl font-bold text-red-600" id="failed-jobs">0</p>
+        <p class="text-sm text-gray-500">Échoués</p>
+      </div>
+    </section>
+
+    <!-- Liste des jobs -->
+    <section class="bg-white rounded-lg shadow overflow-hidden">
+      <div class="px-6 py-4 border-b bg-gray-50 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-800">Liste des Analyses</h2>
+        <span class="text-sm text-gray-500">Cliquez sur 🗑️ pour supprimer les fichiers</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Sample ID</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Durée</th>
+              <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-table">
+            <tr><td colspan="6" class="text-center py-8 text-gray-500">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Modal de confirmation suppression -->
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 max-w-md mx-4">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">🗑️ Supprimer les fichiers</h3>
+        <p class="text-gray-600 mb-4">Que voulez-vous supprimer pour <strong id="modal-sample-id">-</strong> ?</p>
+
+        <div class="space-y-3 mb-6">
+          <label class="flex items-center gap-3 p-3 bg-gray-50 rounded cursor-pointer hover:bg-gray-100">
+            <input type="checkbox" id="delete-outputs" checked class="w-5 h-5 text-red-600 rounded">
+            <div>
+              <p class="font-semibold text-gray-800">Résultats (outputs)</p>
+              <p class="text-sm text-gray-500">Fichiers d'analyse, rapports, logs</p>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 bg-gray-50 rounded cursor-pointer hover:bg-gray-100">
+            <input type="checkbox" id="delete-data" class="w-5 h-5 text-red-600 rounded">
+            <div>
+              <p class="font-semibold text-gray-800">Données téléchargées</p>
+              <p class="text-sm text-gray-500">Fichiers SRA/FASTA/Assembly originaux</p>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 bg-red-50 rounded cursor-pointer hover:bg-red-100 border border-red-200">
+            <input type="checkbox" id="delete-job" class="w-5 h-5 text-red-600 rounded">
+            <div>
+              <p class="font-semibold text-red-800">Supprimer aussi le job de l'historique</p>
+              <p class="text-sm text-red-600">Le job n'apparaîtra plus dans la liste</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="flex gap-3">
+          <button onclick="closeDeleteModal()" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded font-semibold hover:bg-gray-300">
+            Annuler
+          </button>
+          <button onclick="confirmDelete()" class="flex-1 bg-red-600 text-white py-2 rounded font-semibold hover:bg-red-700">
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
+      <div class="text-center">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-20 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">MEGAM ARG Detection WEB</h2>
+        <p class="text-gray-600 mb-6">Pipeline de Détection des Gènes de Résistance aux Antimicrobiens</p>
+
+        <div class="bg-blue-50 rounded-lg p-4 mb-6">
+          <p class="text-sm text-gray-600 mb-2">Développé par</p>
+          <p class="text-lg font-bold text-blue-900">Rachid Merah</p>
+          <a href="mailto:rachid.merah77@gmail.com" class="text-blue-600 hover:underline block">rachid.merah77@gmail.com</a>
+          <a href="https://wa.me/213556146653" target="_blank" class="text-green-600 hover:underline flex items-center justify-center gap-1 mt-2">
+            <span>📱</span> +213 556 146 653 (WhatsApp)
+          </a>
+        </div>
+
+        <p class="text-sm text-gray-600 mb-4 px-4">
+          Contactez-moi pour signaler un bug ou proposer des améliorations.
+        </p>
+
+        <a href="https://github.com/rmerah/MEGAM-ARG-detection" target="_blank" class="inline-flex items-center gap-2 text-gray-700 hover:text-black font-semibold mb-4">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+
+        <p class="text-sm text-gray-500 mb-6">Version 3.2</p>
+
+        <button onclick="closeAboutModal()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="api-client.js"></script>
+  <script>
+    let allJobs = [];
+    let currentFilter = '';
+    let deleteJobId = null;
+
+    async function loadJobs() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs?limit=50`, {
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        const data = await response.json();
+        allJobs = data.jobs || [];
+
+        // Stats
+        document.getElementById('total-jobs').textContent = allJobs.length;
+        document.getElementById('completed-jobs').textContent = allJobs.filter(j => j.status === 'COMPLETED').length;
+        document.getElementById('running-jobs').textContent = allJobs.filter(j => j.status === 'RUNNING').length;
+        document.getElementById('failed-jobs').textContent = allJobs.filter(j => j.status === 'FAILED').length;
+
+        renderJobs();
+      } catch (error) {
+        console.error('Erreur:', error);
+        document.getElementById('jobs-table').innerHTML = `
+          <tr><td colspan="6" class="text-center py-8 text-red-500">
+            Erreur de connexion à l'API. Vérifiez que le backend est lancé.
+          </td></tr>`;
+      }
+    }
+
+    function filterByStatus(status) {
+      currentFilter = status;
+
+      // Update button styles
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.className = 'filter-btn px-4 py-2 rounded font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300';
+      });
+      event.target.className = 'filter-btn px-4 py-2 rounded font-semibold bg-blue-600 text-white';
+
+      renderJobs();
+    }
+
+    function renderJobs() {
+      const tbody = document.getElementById('jobs-table');
+      let jobs = currentFilter ? allJobs.filter(j => j.status === currentFilter) : allJobs;
+
+      if (jobs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500">Aucun job trouvé</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = jobs.map(job => {
+        const statusBadge = getStatusBadge(job.status);
+        const date = new Date(job.created_at).toLocaleString('fr-FR');
+        const duration = job.completed_at ? calculateDuration(job.created_at, job.completed_at) : '-';
+        const safeJobId = escapeHtml(job.job_id);
+        const safeSampleId = escapeHtml(job.sample_id);
+
+        return `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <p class="font-semibold text-gray-900">${safeSampleId}</p>
+              <p class="text-xs text-gray-500">${safeJobId.slice(0, 8)}...</p>
+            </td>
+            <td class="px-4 py-3">
+              <span class="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs uppercase">${escapeHtml(job.input_type || '-')}</span>
+            </td>
+            <td class="px-4 py-3">${statusBadge}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${date}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${duration}</td>
+            <td class="px-4 py-3">
+              <div class="flex gap-1 justify-center flex-wrap">
+                <a href="dashboard_monitoring.html?job_id=${encodeURIComponent(job.job_id)}"
+                   class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium hover:bg-blue-200">
+                  Dashboard
+                </a>
+                ${job.status === 'COMPLETED' ? `
+                  <a href="page_results_arg.html?job_id=${encodeURIComponent(job.job_id)}"
+                     class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium hover:bg-green-200">
+                    Résultats
+                  </a>
+                ` : ''}
+                ${job.status === 'RUNNING' ? `
+                  <button onclick="stopJob('${safeJobId}', '${safeSampleId}')"
+                          class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-medium hover:bg-orange-200">
+                    ⏹️ Arrêter
+                  </button>
+                ` : ''}
+                <button onclick="openDeleteModal('${safeJobId}', '${safeSampleId}')"
+                        class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-medium hover:bg-red-200">
+                  🗑️
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function getStatusBadge(status) {
+      const badges = {
+        'COMPLETED': '<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">✅ Terminé</span>',
+        'RUNNING': '<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold animate-pulse">🔄 En cours</span>',
+        'FAILED': '<span class="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">❌ Échoué</span>',
+        'PENDING': '<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">⏳ En attente</span>'
+      };
+      return badges[status] || `<span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs">${status}</span>`;
+    }
+
+    function calculateDuration(start, end) {
+      const diffMs = new Date(end) - new Date(start);
+      const diffSec = Math.floor(diffMs / 1000);
+      const min = Math.floor(diffSec / 60);
+      const sec = diffSec % 60;
+      return `${min}m ${sec}s`;
+    }
+
+    // Modal de suppression
+    function openDeleteModal(jobId, sampleId) {
+      deleteJobId = jobId;
+      document.getElementById('modal-sample-id').textContent = sampleId;
+      document.getElementById('delete-outputs').checked = true;
+      document.getElementById('delete-data').checked = false;
+      document.getElementById('delete-job').checked = false;
+      document.getElementById('delete-modal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+      deleteJobId = null;
+      document.getElementById('delete-modal').classList.add('hidden');
+    }
+
+    async function confirmDelete() {
+      if (!deleteJobId) return;
+
+      const deleteOutputs = document.getElementById('delete-outputs').checked;
+      const deleteData = document.getElementById('delete-data').checked;
+      const deleteJob = document.getElementById('delete-job').checked;
+
+      try {
+        // Supprimer les données téléchargées si demandé (via endpoint dédié)
+        if (deleteData) {
+          const params = new URLSearchParams();
+          params.append('delete_outputs', false);
+          params.append('delete_data', true);
+
+          await fetch(`${API_BASE_URL}/api/jobs/${deleteJobId}/files?${params}`, {
+            method: 'DELETE'
+          });
+        }
+
+        // Supprimer le job (les fichiers outputs sont supprimés automatiquement par le backend)
+        if (deleteJob) {
+          const params = new URLSearchParams();
+          params.append('delete_files', deleteOutputs);
+
+          await fetch(`${API_BASE_URL}/api/jobs/${deleteJobId}?${params}`, {
+            method: 'DELETE'
+          });
+        } else if (deleteOutputs) {
+          // Supprimer uniquement les outputs sans supprimer le job de la DB
+          const params = new URLSearchParams();
+          params.append('delete_outputs', true);
+          params.append('delete_data', false);
+
+          await fetch(`${API_BASE_URL}/api/jobs/${deleteJobId}/files?${params}`, {
+            method: 'DELETE'
+          });
+        }
+
+        closeDeleteModal();
+        loadJobs();
+
+        alert('✅ Suppression effectuée');
+
+      } catch (error) {
+        console.error('Erreur suppression:', error);
+        alert('❌ Erreur lors de la suppression');
+      }
+    }
+
+    async function deleteAllJobs() {
+      if (!confirm('⚠️ ATTENTION ⚠️\n\nVoulez-vous vraiment supprimer TOUS les jobs et leurs fichiers associés ?\n\nCette action est irréversible.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs?delete_files=true`, {
+          method: 'DELETE'
+        });
+        const data = await response.json();
+        alert(`✅ ${data.message}`);
+        loadJobs();
+      } catch (error) {
+        console.error('Erreur:', error);
+        alert('❌ Erreur lors de la suppression');
+      }
+    }
+
+    // Auto-refresh pour jobs en cours
+    setInterval(() => {
+      if (allJobs.some(j => j.status === 'RUNNING')) {
+        loadJobs();
+      }
+    }, 10000);
+
+    // Fermer modal avec Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDeleteModal();
+    });
+
+    // ===== STOP JOB =====
+    async function stopJob(jobId, sampleId) {
+      if (!confirm(`⚠️ Arrêter l'analyse de "${sampleId}" ?\n\nCette action est irréversible.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/stop`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          alert(`✅ Analyse "${sampleId}" arrêtée`);
+          loadJobs();
+        } else {
+          alert(`❌ Erreur: ${data.message || data.detail}`);
+        }
+      } catch (error) {
+        console.error('Erreur arrêt job:', error);
+        alert(`❌ Erreur: ${error.message}`);
+      }
+    }
+
+    // ===== ABOUT MODAL =====
+    function openAboutModal() {
+      document.getElementById('about-modal').classList.remove('hidden');
+    }
+
+    function closeAboutModal() {
+      document.getElementById('about-modal').classList.add('hidden');
+    }
+
+    // ===== RUNNING JOBS INDICATOR =====
+    function updateRunningJobsIndicator() {
+      const runningJobs = allJobs.filter(j => j.status === 'RUNNING');
+
+      const indicator = document.getElementById('running-jobs-indicator');
+      const countEl = document.getElementById('running-count');
+
+      if (runningJobs.length > 0) {
+        indicator.classList.remove('hidden');
+        indicator.classList.add('flex');
+        countEl.textContent = runningJobs.length;
+        indicator.href = `dashboard_monitoring.html?job_id=${runningJobs[0].job_id}`;
+      } else {
+        indicator.classList.add('hidden');
+        indicator.classList.remove('flex');
+      }
+    }
+
+    // Update indicator when jobs are loaded
+    const originalLoadJobs = loadJobs;
+    loadJobs = async function() {
+      await originalLoadJobs();
+      updateRunningJobsIndicator();
+    };
+
+    // Init
+    checkBackendConnection();
+    loadJobs();
+  </script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+services:
+  megam-arg:
+    image: ghcr.io/rmerah/megam-arg-detection:3.2
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: megam-arg
+    ports:
+      - "${MEGAM_PORT:-8080}:80"
+    volumes:
+      - megam-databases:/app/pipeline/databases
+      - megam-outputs:/app/pipeline/outputs
+      - megam-data:/app/pipeline/data
+      - megam-db:/app/backend/db
+    environment:
+      - MEGAM_THREADS=${MEGAM_THREADS:-4}
+      - CORS_ORIGINS=http://localhost:${MEGAM_PORT:-8080}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+volumes:
+  megam-databases:
+  megam-outputs:
+  megam-data:
+  megam-db:
