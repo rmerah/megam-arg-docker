@@ -1,0 +1,436 @@
+================================================================================
+    MEGAM ARG DETECTION — EXPLICATION DU PROJET DOCKER
+================================================================================
+
+Date: 20 février 2026
+Auteur: Rachid Merah (avec Claude Opus 4.6)
+
+================================================================================
+🎯 LE PROBLÈME DE DÉPART
+================================================================================
+
+Les biologistes/chercheurs en microbiologie doivent analyser des génomes
+bactériens pour détecter les gènes de résistance aux antibiotiques (ARG).
+Le pipeline bash existant était très puissant mais IMPOSSIBLE à installer
+pour un non-informaticien :
+
+    Biologiste typique
+          ↓
+    "Installez conda"     ❌ Quoi ? Comment ?
+    "Activez l'env"       ❌ C'est quoi un env ?
+    "Le script plante"    ❌ Erreur ligne 2847...
+          ↓
+       ABANDON
+
+
+================================================================================
+🎁 LA SOLUTION : UN INSTALLEUR WINDOWS "MAGIQUE"
+================================================================================
+
+On a créé un NOUVEAU DÉPÔT SÉPARÉ qui transforme le pipeline en application
+Windows "cliquable" :
+
+┌─────────────────────────────────────────┐
+│  MEGAM-ARG-Detection-Setup-3.2.exe      │  ← Le biologiste télécharge ça
+└─────────────────────────────────────────┘
+              ↓ Double-clic
+┌─────────────────────────────────────────┐
+│  Installeur intelligent (Inno Setup)    │
+│  ✓ Détecte WSL2 → installe si absent    │
+│  ✓ Détecte Docker → installe si absent  │
+│  ✓ Copie les fichiers                   │
+│  ✓ Crée raccourci bureau                │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│  Raccourci bureau créé :                │
+│  🧬 MEGAM ARG Detection                 │
+└─────────────────────────────────────────┘
+              ↓ Double-clic
+┌─────────────────────────────────────────┐
+│  Lanceur PowerShell (caché)             │
+│  ✓ Démarre Docker si éteint             │
+│  ✓ Lance le conteneur                   │
+│  ✓ Ouvre le navigateur                  │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│  http://localhost:8080                  │
+│  Interface web du pipeline              │
+│  → Coller un ID SRA (ex: SRR28083254)   │
+│  → Cliquer "Analyser"                   │
+│  → Attendre les résultats               │
+└─────────────────────────────────────────┘
+
+
+================================================================================
+🏗️ ARCHITECTURE TECHNIQUE (CE QU'ON A CONSTRUIT)
+================================================================================
+
+1. LE CONTENEUR DOCKER (L'USINE À GAZ CACHÉE)
+───────────────────────────────────────────────
+
+┌────────────────────────────────────────────────────┐
+│          IMAGE DOCKER (ghcr.io)                    │
+│  Base: mambaforge (gestionnaire de paquets)        │
+├────────────────────────────────────────────────────┤
+│  📦 Environnement 1: megam_arg                     │
+│     FastQC, SPAdes, AMRFinder, MLST, KMA...        │
+│     (outils principaux du pipeline)                │
+├────────────────────────────────────────────────────┤
+│  📦 Environnement 2: snippy_prokka                 │
+│     Snippy, Prokka (conflits avec les autres)      │
+├────────────────────────────────────────────────────┤
+│  📦 Environnement 3: abricate_env                  │
+│     Abricate (conflits Perl)                       │
+├────────────────────────────────────────────────────┤
+│  🐍 Backend Python (FastAPI)                       │
+│     API REST sur port 8000                         │
+├────────────────────────────────────────────────────┤
+│  🌐 Frontend HTML/JS                               │
+│     Interface web utilisateur                      │
+├────────────────────────────────────────────────────┤
+│  🔧 Pipeline bash (version Docker)                 │
+│     Script modifié (sans conda)                    │
+├────────────────────────────────────────────────────┤
+│  🔀 Nginx (port 80)                                │
+│     Reverse proxy: / → frontend, /api → backend    │
+└────────────────────────────────────────────────────┘
+                     ↑
+            Volumes persistants:
+            • databases/ (AMRFinder, CARD...)
+            • outputs/ (résultats analyses)
+            • data/ (fichiers SRA téléchargés)
+            • jobs.db (historique)
+
+
+2. L'INSTALLEUR WINDOWS
+─────────────────────────
+
+┌─────────────────────────────────────────────────┐
+│  megam-installer.iss (script Inno Setup)        │
+│                                                 │
+│  1. Page "Vérification prérequis"               │
+│     [OK] WSL2 installé                          │
+│     [!]  Docker manquant → propose installation │
+│     [OK] 45 GB libres                           │
+│                                                 │
+│  2. Si WSL2 absent:                             │
+│     → wsl --install --no-distribution           │
+│     → Redemarre Windows                         │
+│                                                 │
+│  3. Si Docker absent:                           │
+│     → PowerShell télécharge installer           │
+│     → Installation silencieuse                  │
+│                                                 │
+│  4. Copie fichiers vers C:\Program Files\       │
+│     MEGAM-ARG\                                  │
+│     ├── docker/ (Dockerfile, compose.yml...)    │
+│     ├── src/ (backend, frontend, pipeline)      │
+│     └── installer/ (scripts PowerShell)         │
+│                                                 │
+│  5. Crée raccourcis:                            │
+│     • Bureau: MEGAM ARG Detection               │
+│     • Menu démarrer: Lancer / Arrêter           │
+└─────────────────────────────────────────────────┘
+
+
+3. LE LANCEUR POWERSHELL (LA MAGIE)
+─────────────────────────────────────
+
+┌─────────────────────────────────────────────────┐
+│  megam-launcher.ps1 (invisible)                 │
+│                                                 │
+│  Étape 1: Docker tourne ?                       │
+│           Non → docker info échoue              │
+│           → Lance "Docker Desktop.exe"          │
+│           → Attend 120s max que Docker démarre  │
+│                                                 │
+│  Étape 2: Image existe ?                        │
+│           Non (1er lancement)                   │
+│           → docker compose pull                 │
+│           → Message "Téléchargement 10-15 min"  │
+│                                                 │
+│  Étape 3: Démarrer conteneur                    │
+│           → docker compose up -d                │
+│           → Attend healthcheck API (120s max)   │
+│                                                 │
+│  Étape 4: Ouvrir navigateur                     │
+│           → Start-Process http://localhost:8080 │
+│                                                 │
+│  Si erreur: popup avec logs + bouton "Copier"   │
+└─────────────────────────────────────────────────┘
+
+
+================================================================================
+🔄 WORKFLOW GITHUB ACTIONS (L'USINE DE PRODUCTION)
+================================================================================
+
+Quand on push un tag v3.2.0 ou déclenche manuellement :
+
+┌──────────────────────────────────────────────────┐
+│  JOB 1: docker (Ubuntu runner, ~10 min)          │
+│  ────────────────────────────────────────────    │
+│  1. Checkout code                                │
+│  2. Login GitHub Container Registry (GHCR)       │
+│  3. Build Dockerfile:                            │
+│     • mamba install 50+ outils bioinformatiques  │
+│     • pip install backend deps                   │
+│     • copie src/, configure nginx                │
+│  4. Push image → ghcr.io/rmerah/megam-arg:3.2.0  │
+└──────────────────────────────────────────────────┘
+                     ↓ needs: docker
+┌──────────────────────────────────────────────────┐
+│  JOB 2: installer (Windows runner, ~20 sec)      │
+│  ────────────────────────────────────────────    │
+│  1. Checkout code                                │
+│  2. Génère icône (PowerShell + GDI+)             │
+│     • Carré bleu avec "ARG" en blanc             │
+│  3. Compile megam-installer.iss                  │
+│     → MEGAM-ARG-Detection-Setup-3.2.exe          │
+│  4. Crée GitHub Release v3.2.0:                  │
+│     • Titre, description                         │
+│     • Upload du .exe (actif téléchargeable)      │
+└──────────────────────────────────────────────────┘
+                     ↓
+         Release publiée sur GitHub
+    https://github.com/rmerah/megam-arg-docker/
+                  releases/tag/v3.2.0
+
+
+================================================================================
+🧬 MIGRATION CONDA → MAMBA (LES CHANGEMENTS TECHNIQUES)
+================================================================================
+
+AVANT (VERSION ORIGINALE)
+─────────────────────────
+
+Dans le pipeline bash:
+
+    eval "$(conda shell.bash hook)"
+    conda activate qc_arg
+      fastqc fichier.fastq
+    conda deactivate
+
+    conda activate assembly_arg
+      spades.py --isolate
+    conda deactivate
+
+    # ... 30+ activate/deactivate ...
+
+
+APRÈS (VERSION DOCKER)
+──────────────────────
+
+Dans le pipeline bash simplifié:
+
+    # L'env megam_arg est déjà activé par entrypoint.sh
+    fastqc fichier.fastq    # Appel direct
+    spades.py --isolate     # Appel direct
+
+    # Outils isolés (conflits)
+    mamba run --no-banner -n snippy_prokka prokka genome.fasta
+    mamba run --no-banner -n abricate_env abricate --db card genome.fasta
+
+
+MODIFICATIONS DANS LE CODE PYTHON
+──────────────────────────────────
+
+Avant (pipeline_launcher.py):
+
+    def __init__(self, pipeline_script, work_dir, conda_init_script=None):
+        # Détection conda
+        conda_base = subprocess.getoutput("conda info --base")
+        self.conda_init = f"{conda_base}/etc/profile.d/conda.sh"
+
+    def build_command(...):
+        cmd = f"bash {script} {sample_id}"
+        # Wrapping avec conda
+        full_cmd = f"source {self.conda_init} && {cmd}"
+        return full_cmd
+
+
+Après (version Docker):
+
+    def __init__(self, pipeline_script, work_dir):
+        # Plus de détection conda
+        self.pipeline_script = Path(pipeline_script)
+        self.work_dir = Path(work_dir)
+
+    def build_command(...):
+        cmd = f"bash {script} {sample_id}"
+        return cmd  # Pas de wrapping, mamba déjà actif
+
+
+================================================================================
+📊 RÉSULTAT FINAL : EXPÉRIENCE UTILISATEUR
+================================================================================
+
+BIOLOGISTE SUR WINDOWS (SCÉNARIO COMPLET)
+──────────────────────────────────────────
+
+Jour 1, 9h00 — Installation initiale
+────────────────────────────────────
+
+  1. Va sur https://github.com/rmerah/megam-arg-docker/releases
+  2. Télécharge MEGAM-ARG-Detection-Setup-3.2.exe (5 sec)
+  3. Double-clic → UAC demande admin → Accepter
+
+  4. Écran "Prérequis":
+     [!] WSL2 manquant
+     [!] Docker manquant
+     → Accepte l'installation auto
+
+  5. WSL2 s'installe (3 min) → redémarrage demandé
+  6. Redémarre → relance l'installeur
+  7. Docker Desktop s'installe (5 min) → redémarrage demandé
+  8. Redémarre
+
+
+Jour 1, 9h30 (après les redémarrages)
+──────────────────────────────────────
+
+  9. Relance l'installeur → tout est vert ✓
+ 10. Installation rapide des fichiers (10 sec)
+ 11. Raccourci bureau créé
+
+
+Premier lancement
+─────────────────
+
+ 12. Double-clic sur "MEGAM ARG Detection"
+ 13. Docker démarre en fond (30 sec)
+ 14. "Téléchargement application (~10-15 min)"
+     → docker pull l'image depuis GHCR
+ 15. Conteneur démarre
+ 16. Navigateur s'ouvre sur http://localhost:8080
+
+ Interface web:
+   - Colle SRR28083254
+   - Clic "Lancer l'analyse"
+   - Attend 20 min (analyse en cours)
+   - Résultats ARG affichés (tableaux, graphiques)
+
+
+Jour 2, 9h00 — Utilisation quotidienne
+───────────────────────────────────────
+
+ 17. Double-clic raccourci bureau
+ 18. Docker démarre (30 sec)
+ 19. App démarre (10 sec)
+ 20. Navigateur s'ouvre → PRÊT ✓
+
+
+Jour 365 — Un an plus tard
+──────────────────────────
+
+ 21. Même chose → 40 sec de boot, prêt à l'emploi
+
+
+================================================================================
+🗂️ STRUCTURE FINALE DU DÉPÔT
+================================================================================
+
+megam-arg-docker/
+│
+├── .github/workflows/
+│   └── release.yml          # CI/CD automatique
+│
+├── docker/
+│   ├── Dockerfile           # Recette de l'image
+│   ├── docker-compose.yml   # Config conteneur
+│   ├── nginx.conf           # Proxy web
+│   └── entrypoint.sh        # Script de démarrage
+│
+├── installer/
+│   ├── megam-installer.iss  # Script Inno Setup
+│   ├── megam-launcher.ps1   # Lance l'app
+│   ├── megam-stop.ps1       # Arrête l'app
+│   ├── check-docker.ps1     # Vérifie prérequis
+│   └── icon.ico             # Icône (générée en CI)
+│
+├── src/
+│   ├── backend/             # API Python (copié et modifié)
+│   │   ├── main.py          # Sans détection conda
+│   │   ├── pipeline_launcher.py
+│   │   ├── models.py
+│   │   ├── database.py
+│   │   └── output_parser.py
+│   │
+│   ├── frontend/            # Web UI (copié tel quel)
+│   │   ├── form_launch_analysis.html
+│   │   ├── dashboard_monitoring.html
+│   │   └── api-client.js
+│   │
+│   ├── pipeline/
+│   │   └── MANUAL_MEGA_MONOLITHIC_PIPELINE_v3.2_DOCKER.sh
+│   │       (version modifiée sans conda)
+│   │
+│   └── python/              # Scripts auxiliaires (tel quel)
+│       ├── generate_arg_report.py
+│       └── collect_features.py
+│
+├── .env.example             # Config (port, threads)
+├── .gitignore
+└── README.md                # Instructions
+
+
+================================================================================
+🎯 EN RÉSUMÉ : AVANT → APRÈS
+================================================================================
+
+AVANT
+─────
+
+Biologiste → "Installez conda"
+           → BLOQUÉ pendant des heures
+           → Appelle l'informaticien
+           → Abandonne
+
+
+APRÈS
+─────
+
+Biologiste → Télécharge .exe
+           → Double-clic
+           → Attend 15 min (1ère fois)
+           → Interface web prête
+           → Colle ID bactérie (ex: SRR28083254)
+           → Résultats ARG en 20 min
+           → 🎉
+
+
+================================================================================
+⏱️ DURÉES
+================================================================================
+
+Installation complète (1ère fois):
+  • Téléchargement installeur: 5 sec
+  • Installation WSL2: 3 min + redémarrage
+  • Installation Docker: 5 min + redémarrage
+  • Installation MEGAM: 10 sec
+  • Téléchargement image Docker: 10-15 min
+  TOTAL: ~30 minutes (dont 15 min de téléchargement)
+
+Lancement quotidien:
+  • Démarrage Docker: 30 sec
+  • Démarrage app: 10 sec
+  TOTAL: 40 secondes
+
+
+Au lieu de: "impossible à installer" et "j'ai oublié comment faire"
+
+
+================================================================================
+🔗 LIENS UTILES
+================================================================================
+
+• Dépôt GitHub: https://github.com/rmerah/megam-arg-docker
+• Release v3.2.0: https://github.com/rmerah/megam-arg-docker/releases/tag/v3.2.0
+• Image Docker: ghcr.io/rmerah/megam-arg-detection:3.2.0
+• Fichier à télécharger: MEGAM-ARG-Detection-Setup-3.2.exe
+
+
+================================================================================
+FIN
+================================================================================
