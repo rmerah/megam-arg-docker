@@ -102,10 +102,10 @@ end;
 // ─────────────────────────────────────────────────────────────────────────────
 function FreeDiskGB: Integer;
 var
-  FreeBytes, TotalBytes: Int64;
+  FreeMB, TotalMB: Cardinal;
 begin
-  GetSpaceOnDisk(ExpandConstant('{sd}'), True, FreeBytes, TotalBytes);
-  Result := FreeBytes div 1073741824;  // 1024^3
+  GetSpaceOnDisk(ExpandConstant('{sd}'), True, FreeMB, TotalMB);
+  Result := FreeMB div 1024;  // Mo -> Go
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────
