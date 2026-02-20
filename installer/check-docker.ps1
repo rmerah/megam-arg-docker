@@ -1,6 +1,6 @@
 #===============================================================================
-# MEGAM ARG Detection — Vérification des prérequis
-# Retourne un objet JSON avec l'état de chaque prérequis
+# MEGAM ARG Detection - Verification des prerequis
+# Retourne un objet JSON avec l'etat de chaque prerequis
 #===============================================================================
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -11,7 +11,7 @@ function Test-WSL {
         if ($LASTEXITCODE -eq 0) { return $true }
     } catch {}
 
-    # Vérifier si la feature Windows est activée
+    # Verifier si la feature Windows est activee
     $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux 2>$null
     if ($wslFeature -and $wslFeature.State -eq "Enabled") { return $true }
 
@@ -19,7 +19,7 @@ function Test-WSL {
 }
 
 function Test-DockerDesktop {
-    # Vérifier si Docker Desktop est installé (plusieurs chemins possibles)
+    # Verifier si Docker Desktop est installe (plusieurs chemins possibles)
     $paths = @(
         "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe",
         "${env:LOCALAPPDATA}\Docker\Docker Desktop.exe",
@@ -28,7 +28,7 @@ function Test-DockerDesktop {
     foreach ($p in $paths) {
         if (Test-Path $p) { return $true }
     }
-    # Dernier recours : vérifier si docker est dans le PATH
+    # Dernier recours : verifier si docker est dans le PATH
     try {
         $null = docker --version 2>&1
         if ($LASTEXITCODE -eq 0) { return $true }
@@ -49,7 +49,7 @@ function Get-FreeDiskSpaceGB {
     return [math]::Round($drive.Free / 1GB, 1)
 }
 
-# Vérifications
+# Verifications
 $status = @{
     wsl_installed     = Test-WSL
     docker_installed  = Test-DockerDesktop
@@ -60,29 +60,29 @@ $status = @{
 
 # Affichage
 Write-Host ""
-Write-Host "=== MEGAM ARG Detection — Vérification des prérequis ===" -ForegroundColor Cyan
+Write-Host "=== MEGAM ARG Detection - Verification des prerequis ===" -ForegroundColor Cyan
 Write-Host ""
 
 if ($status.wsl_installed) {
-    Write-Host "  [OK] WSL2 est installé" -ForegroundColor Green
+    Write-Host "  [OK] WSL2 est installe" -ForegroundColor Green
 } else {
-    Write-Host "  [!!] WSL2 n'est PAS installé" -ForegroundColor Red
+    Write-Host "  [!!] WSL2 n'est PAS installe" -ForegroundColor Red
 }
 
 if ($status.docker_installed) {
-    Write-Host "  [OK] Docker Desktop est installé" -ForegroundColor Green
+    Write-Host "  [OK] Docker Desktop est installe" -ForegroundColor Green
 } else {
-    Write-Host "  [!!] Docker Desktop n'est PAS installé" -ForegroundColor Red
+    Write-Host "  [!!] Docker Desktop n'est PAS installe" -ForegroundColor Red
 }
 
 if ($status.docker_running) {
-    Write-Host "  [OK] Docker est en cours d'exécution" -ForegroundColor Green
+    Write-Host "  [OK] Docker est en cours d'execution" -ForegroundColor Green
 } else {
-    Write-Host "  [!!] Docker n'est PAS en cours d'exécution" -ForegroundColor Yellow
+    Write-Host "  [!!] Docker n'est PAS en cours d'execution" -ForegroundColor Yellow
 }
 
 Write-Host "  [INFO] Espace disque libre : $($status.free_disk_gb) GB" -ForegroundColor $(if ($status.disk_ok) { "Green" } else { "Red" })
 Write-Host ""
 
-# Retourner le résultat sous forme d'objet
+# Retourner le resultat sous forme d'objet
 return $status

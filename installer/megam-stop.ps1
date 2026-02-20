@@ -1,5 +1,5 @@
 #===============================================================================
-# MEGAM ARG Detection — Arrêt de l'application
+# MEGAM ARG Detection - Arret de l'application
 #===============================================================================
 
 $AppDir = "$env:ProgramFiles\MEGAM-ARG"
@@ -11,15 +11,15 @@ try {
     Set-Location $AppDir
     docker compose -f $ComposeFile down 2>&1 | Out-Null
     [System.Windows.Forms.MessageBox]::Show(
-        "MEGAM ARG Detection a été arrêté.",
+        "MEGAM ARG Detection a ete arrete.",
         "MEGAM ARG Detection",
         "OK",
         "Information"
     )
 } catch {
     [System.Windows.Forms.MessageBox]::Show(
-        "Erreur lors de l'arrêt : $($_.Exception.Message)",
-        "MEGAM ARG — Erreur",
+        "Erreur lors de l'arret : $($_.Exception.Message)",
+        "MEGAM ARG - Erreur",
         "OK",
         "Error"
     )
