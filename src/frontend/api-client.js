@@ -14,12 +14,16 @@
  */
 
 // Auto-détection de l'URL de l'API
+// - Docker/nginx : tout passe par le même port (reverse proxy /api/ → uvicorn)
+// - Dev local : frontend port X, backend port X-80 (ex: 8080 → 8000)
 const API_BASE_URL = (() => {
     const port = window.location.port;
+    // Pas de port, ou port standard → URL relative (nginx/reverse proxy)
     if (!port || port === '80' || port === '443') return '';
-    // Mode développement : backend sur port frontend - 80
-    const backendPort = parseInt(port, 10) - 80;
-    return `http://${window.location.hostname}:${backendPort}`;
+    // Tester si /api/ est accessible sur le même port (mode Docker avec port exposé)
+    // En Docker, nginx écoute sur le port exposé et proxy /api/ vers uvicorn
+    // On utilise une URL relative par défaut, le check asynchrone corrigera si nécessaire
+    return '';
 })();
 
 /**
@@ -50,10 +54,10 @@ function _showConnectionBanner() {
     banner.innerHTML = `
         <span style="font-size:20px">⚠️</span>
         <span style="color:#991B1B;font-weight:600;font-size:14px">
-            Backend API non disponible sur <code style="background:#FEE2E2;padding:2px 6px;border-radius:4px">${API_BASE_URL || window.location.origin}</code>
+            Backend API non disponible sur <code style="background:#FEE2E2;padding:2px 6px;border-radius:4px">${window.location.origin}</code>
         </span>
         <span style="color:#B91C1C;font-size:13px">
-            — Lancez le backend : <code style="background:#FEE2E2;padding:2px 6px;border-radius:4px">cd backend && source venv/bin/activate && python -m uvicorn main:app --host 0.0.0.0 --port ${new URL(API_BASE_URL || window.location.origin).port || '8000'}</code>
+            — Le backend démarre... Patientez quelques secondes puis cliquez Réessayer.
         </span>
         <button onclick="this.parentElement.remove();checkBackendConnection()" style="margin-left:12px;background:#EF4444;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">Réessayer</button>
     `;
