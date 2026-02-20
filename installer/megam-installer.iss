@@ -33,7 +33,6 @@ PrivilegesRequired=admin
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\installer\icon.ico
 MinVersion=10.0
-ArchitecturesInstallIn64BitModeOnly=x64
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
