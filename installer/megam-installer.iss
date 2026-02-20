@@ -59,7 +59,7 @@ Name: "{group}\Arrêter {#MyAppName}"; Filename: "powershell.exe"; Parameters: "
 
 [Run]
 ; Proposer de lancer après installation
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\installer\megam-launcher.ps1"""; Description: "Lancer {#MyAppName} maintenant"; Flags: postinstall nowait skipifsilent
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\installer\megam-launcher.ps1"""; Description: "Lancer {#MyAppName} maintenant"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
 ; Arrêter l'application avant désinstallation

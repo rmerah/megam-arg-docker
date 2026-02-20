@@ -1,6 +1,6 @@
 #===============================================================================
 # MEGAM ARG Detection — Lanceur Windows
-# Ce script est exécuté par le raccourci bureau (fenêtre cachée)
+# Ce script est exécuté par le raccourci bureau
 #===============================================================================
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +16,6 @@ $Port = 8080
 
 function Show-Progress {
     param([string]$Title, [string]$Message)
-    # Utiliser une notification toast Windows ou une fenêtre WPF simple
     Add-Type -AssemblyName System.Windows.Forms
     $form = New-Object System.Windows.Forms.Form
     $form.Text = $Title
@@ -69,6 +68,22 @@ function Test-DockerRunning {
     }
 }
 
+function Test-DockerInstalled {
+    $paths = @(
+        "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe",
+        "${env:LOCALAPPDATA}\Docker\Docker Desktop.exe",
+        "${env:LOCALAPPDATA}\Programs\Docker\Docker\Docker Desktop.exe"
+    )
+    foreach ($p in $paths) {
+        if (Test-Path $p) { return $true }
+    }
+    try {
+        $null = docker --version 2>&1
+        if ($LASTEXITCODE -eq 0) { return $true }
+    } catch {}
+    return $false
+}
+
 function Wait-ForDocker {
     param([int]$TimeoutSeconds = 120)
     $elapsed = 0
@@ -76,14 +91,13 @@ function Wait-ForDocker {
         if (Test-DockerRunning) { return $true }
         Start-Sleep -Seconds 3
         $elapsed += 3
-        # Rafraîchir la fenêtre de progression
         [System.Windows.Forms.Application]::DoEvents()
     }
     return $false
 }
 
 function Wait-ForApp {
-    param([int]$TimeoutSeconds = 120)
+    param([int]$TimeoutSeconds = 180)
     $elapsed = 0
     while ($elapsed -lt $TimeoutSeconds) {
         try {
@@ -92,10 +106,27 @@ function Wait-ForApp {
         } catch {}
         Start-Sleep -Seconds 3
         $elapsed += 3
-        # Rafraîchir la fenêtre de progression
         [System.Windows.Forms.Application]::DoEvents()
     }
     return $false
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. Vérifier que Docker Desktop est installé
+# ─────────────────────────────────────────────────────────────────────────────
+
+if (-not (Test-DockerInstalled)) {
+    Show-Error ("Docker Desktop n'est pas installé.`n`n" +
+        "Pour l'installer :`n" +
+        "1. Ouvrez votre navigateur (Chrome, Edge, Firefox...)`n" +
+        "2. Allez sur Google et tapez : install docker desktop windows`n" +
+        "3. Cliquez sur le premier lien (docker.com)`n" +
+        "4. Cliquez sur 'Download Docker Desktop'`n" +
+        "5. Lancez le fichier téléchargé et suivez les étapes`n" +
+        "6. Redémarrez si demandé`n" +
+        "7. Lancez Docker Desktop une fois depuis le menu Démarrer`n" +
+        "8. Puis relancez MEGAM ARG Detection")
+    exit 1
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +134,7 @@ function Wait-ForApp {
 # ─────────────────────────────────────────────────────────────────────────────
 
 if (-not (Test-DockerRunning)) {
-    # Chercher Docker Desktop dans tous les chemins possibles
+    # Chercher Docker Desktop
     $dockerExe = $null
     $paths = @(
         "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe",
@@ -112,11 +143,6 @@ if (-not (Test-DockerRunning)) {
     )
     foreach ($p in $paths) {
         if (Test-Path $p) { $dockerExe = $p; break }
-    }
-
-    if (-not $dockerExe) {
-        Show-Error "Docker Desktop n'est pas installé.`n`nPour l'installer :`n1. Ouvrez votre navigateur et cherchez 'install docker desktop' sur Google`n2. Téléchargez Docker Desktop depuis docker.com`n3. Lancez l'installeur téléchargé et suivez les étapes`n4. Redémarrez si demandé, puis relancez MEGAM ARG Detection"
-        exit 1
     }
 
     # Lancer Docker Desktop
@@ -144,20 +170,31 @@ try {
 } catch {}
 
 if (-not $imageExists) {
-    # Premier lancement : pull ou build
-    $form = Show-Progress -Title "MEGAM ARG Detection — Premier lancement" -Message "Téléchargement de l'application... (~10-15 minutes)`nCette étape n'est nécessaire qu'une seule fois."
+    # Premier lancement : pull l'image depuis GHCR
+    $form = Show-Progress -Title "MEGAM ARG Detection — Premier lancement" -Message "Téléchargement de l'application... (~10-15 minutes)`nCette étape n'est nécessaire qu'une seule fois.`nUne fenêtre va s'ouvrir pour montrer la progression."
+    $form.Refresh()
 
     try {
-        $env:COMPOSE_FILE = $ComposeFile
         Set-Location $AppDir
-        docker compose -f $ComposeFile pull 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            # Fallback : build local
-            docker compose -f $ComposeFile build 2>&1 | Out-Null
+        # Montrer la progression du pull dans une fenêtre visible
+        $pullProcess = Start-Process -FilePath "docker" -ArgumentList "compose -f `"$ComposeFile`" pull" -PassThru -Wait -NoNewWindow
+        if ($pullProcess.ExitCode -ne 0) {
+            # Fallback : build local (visible aussi)
+            $form.Close()
+            $form = Show-Progress -Title "MEGAM ARG Detection — Construction" -Message "Construction de l'image en local... (~20-30 minutes)`nCette étape n'est nécessaire qu'une seule fois."
+            $form.Refresh()
+            $buildProcess = Start-Process -FilePath "docker" -ArgumentList "compose -f `"$ComposeFile`" build" -PassThru -Wait -NoNewWindow
+            if ($buildProcess.ExitCode -ne 0) {
+                throw "Build failed"
+            }
         }
     } catch {
         $form.Close()
-        Show-Error "Échec du téléchargement de l'image Docker.`nVérifiez votre connexion Internet et réessayez." $_.Exception.Message
+        Show-Error ("Échec du téléchargement de l'image Docker.`n`n" +
+            "Vérifiez :`n" +
+            "- Votre connexion Internet`n" +
+            "- Que Docker Desktop est bien lancé (icône dans la barre des tâches)`n`n" +
+            "Puis réessayez en double-cliquant sur le raccourci MEGAM ARG Detection.") $_.Exception.Message
         exit 1
     }
 
@@ -172,10 +209,14 @@ $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Démarrage de l'app
 
 try {
     Set-Location $AppDir
-    docker compose -f $ComposeFile up -d 2>&1 | Out-Null
+    $upProcess = Start-Process -FilePath "docker" -ArgumentList "compose -f `"$ComposeFile`" up -d" -PassThru -Wait -NoNewWindow
+    if ($upProcess.ExitCode -ne 0) {
+        throw "docker compose up failed"
+    }
 } catch {
     $form.Close()
-    $logs = docker compose -f $ComposeFile logs --tail=30 2>&1 | Out-String
+    $logs = ""
+    try { $logs = docker compose -f $ComposeFile logs --tail=30 2>&1 | Out-String } catch {}
     Show-Error "Échec du démarrage de l'application." $logs
     exit 1
 }
@@ -184,12 +225,17 @@ try {
 # 4. Attendre que l'app soit prête et ouvrir le navigateur
 # ─────────────────────────────────────────────────────────────────────────────
 
-$appReady = Wait-ForApp -TimeoutSeconds 120
+$appReady = Wait-ForApp -TimeoutSeconds 180
 $form.Close()
 
 if ($appReady) {
     Start-Process "http://localhost:$Port"
 } else {
-    $logs = docker compose -f $ComposeFile logs --tail=50 2>&1 | Out-String
-    Show-Error "L'application ne répond pas après 2 minutes de démarrage." $logs
+    $logs = ""
+    try { $logs = docker compose -f $ComposeFile logs --tail=50 2>&1 | Out-String } catch {}
+    Show-Error ("L'application ne répond pas après 3 minutes.`n`n" +
+        "Essayez :`n" +
+        "1. Ouvrez Docker Desktop et vérifiez que le conteneur 'megam-arg' est en cours d'exécution`n" +
+        "2. Si le conteneur est arrêté, relancez MEGAM ARG Detection`n" +
+        "3. Si le problème persiste, redémarrez Docker Desktop") $logs
 }

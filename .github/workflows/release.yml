@@ -111,7 +111,7 @@ jobs:
 
             **2.** Double-cliquez dessus et suivez l'assistant
 
-            **3.** L'installeur installe **tout automatiquement** (WSL2, Docker Desktop si absents)
+            **3.** L'installeur installe WSL2 automatiquement si absent. Pour Docker Desktop, suivez les instructions affichées (recherchez "install docker desktop" sur Google et installez-le vous-même)
 
             **4.** Double-cliquez sur le raccourci **MEGAM ARG Detection** sur votre bureau
 
@@ -132,7 +132,7 @@ jobs:
             | Étape | Durée |
             |-------|-------|
             | Installation WSL2 (si absent) | ~3 min + redémarrage |
-            | Installation Docker Desktop (si absent) | ~5 min + redémarrage |
+            | Installation Docker Desktop (manuelle, si absent) | ~5 min + redémarrage |
             | Téléchargement de l'image Docker | ~10-15 min |
             | **Lancements suivants** | **~30 secondes** |
           files: |
