@@ -26,34 +26,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Environnement mamba principal : megam_arg
 # Tous les outils bioinformatiques dans un seul env
 # ─────────────────────────────────────────────────────────────────────────────
+# QC: fastqc, fastp, multiqc
+# Données: sra-tools
+# Assemblage: spades, quast, seqkit, megahit
+# Mapping: samtools, bcftools
+# ARG detection: amrfinderplus, kma, blast
+# MLST: mlst
+# Analyse Python: pandas, matplotlib, seaborn, openpyxl, biopython
 RUN mamba create -n megam_arg -c conda-forge -c bioconda -c defaults \
     python=3.11 \
-    # QC
-    fastqc=0.12.1 \
-    fastp \
-    multiqc=1.19 \
-    # Données
-    sra-tools>=3.0 \
-    # Assemblage
-    spades=3.15.5 \
-    quast=5.2.0 \
-    seqkit=2.5.1 \
-    megahit \
-    # Mapping / Variant
-    samtools=1.18 \
-    bcftools=1.18 \
-    # ARG detection
-    ncbi-amrfinderplus \
-    kma \
-    blast \
-    # MLST
+    fastqc=0.12.1 fastp multiqc=1.19 \
+    sra-tools">=3.0" \
+    spades=3.15.5 quast=5.2.0 seqkit=2.5.1 megahit \
+    samtools=1.18 bcftools=1.18 \
+    ncbi-amrfinderplus kma blast \
     mlst=2.23.0 \
-    # Analyse
-    pandas \
-    matplotlib \
-    seaborn \
-    openpyxl \
-    biopython \
+    pandas matplotlib seaborn openpyxl biopython \
     --yes \
     && mamba clean -afy
 

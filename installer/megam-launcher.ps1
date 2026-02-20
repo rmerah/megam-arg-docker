@@ -76,6 +76,8 @@ function Wait-ForDocker {
         if (Test-DockerRunning) { return $true }
         Start-Sleep -Seconds 3
         $elapsed += 3
+        # Rafraîchir la fenêtre de progression
+        [System.Windows.Forms.Application]::DoEvents()
     }
     return $false
 }
@@ -90,6 +92,8 @@ function Wait-ForApp {
         } catch {}
         Start-Sleep -Seconds 3
         $elapsed += 3
+        # Rafraîchir la fenêtre de progression
+        [System.Windows.Forms.Application]::DoEvents()
     }
     return $false
 }

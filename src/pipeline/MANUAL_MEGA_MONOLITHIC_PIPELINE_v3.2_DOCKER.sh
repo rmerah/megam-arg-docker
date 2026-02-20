@@ -1432,7 +1432,7 @@ find_mlst_db() {
     # Chercher dans DB_DIR
     if [[ -d "$DB_DIR/mlst_db/db" ]] && [[ -d "$DB_DIR/mlst_db/db/pubmlst" ]]; then
         found_path="$DB_DIR/mlst_db"
-    # Chercher dans conda env
+    # Chercher dans l'env mamba activé
     elif [[ -d "${CONDA_PREFIX:-}/share/mlst/db" ]]; then
         found_path="${CONDA_PREFIX:-}/share/mlst"
     fi
@@ -2843,8 +2843,7 @@ MLST_ALLELES=""
 
 # [Docker] mlst est dans l'env megam_arg déjà activé
 
-# Configurer PERL5LIB pour mlst (nécessaire si installé manuellement)
-# Initialiser PERL5LIB si non défini pour éviter unbound variable
+# Configurer PERL5LIB pour mlst (nécessaire dans l'env mamba)
 export PERL5LIB="${PERL5LIB:-}:${CONDA_PREFIX:-}/lib/perl5/site_perl:${CONDA_PREFIX:-}/lib/perl5"
 
 # Vérifier si mlst est disponible

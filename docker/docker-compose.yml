@@ -1,6 +1,6 @@
 services:
   megam-arg:
-    image: ghcr.io/rmerah/megam-arg-detection:3.2
+    image: ghcr.io/rmerah/megam-arg-detection:latest
     build:
       context: ..
       dockerfile: docker/Dockerfile

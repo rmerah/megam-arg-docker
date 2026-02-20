@@ -18,16 +18,15 @@ eval "$(/opt/conda/bin/conda shell.bash hook)"
 conda activate megam_arg
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Lien symbolique pour jobs.db (volume persistant)
+# jobs.db dans le volume persistant
 # ─────────────────────────────────────────────────────────────────────────────
-if [ ! -f /app/backend/db/jobs.db ]; then
-    mkdir -p /app/backend/db
+mkdir -p /app/backend/db
+# Si jobs.db existe comme fichier normal (pas symlink), le déplacer dans le volume
+if [ -f /app/backend/jobs.db ] && [ ! -L /app/backend/jobs.db ]; then
+    mv /app/backend/jobs.db /app/backend/db/jobs.db 2>/dev/null || true
 fi
-# Le backend utilise jobs.db dans son répertoire courant
-# On crée un lien symbolique si le volume est monté
-if [ -d /app/backend/db ] && [ ! -L /app/backend/jobs.db ]; then
-    ln -sf /app/backend/db/jobs.db /app/backend/jobs.db 2>/dev/null || true
-fi
+# Créer/mettre à jour le symlink vers le volume persistant
+ln -sf /app/backend/db/jobs.db /app/backend/jobs.db
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Vérifier les bases de données

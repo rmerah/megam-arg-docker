@@ -260,6 +260,9 @@ begin
            + #13#10 + 'Après le redémarrage, relancez cet installeur.',
            mbInformation, MB_OK);
     RestartNeeded := True;
+    // Arrêter l'installation : Docker ne peut pas fonctionner avant le redémarrage
+    Result := False;
+    Exit;
   end;
 
   // 3. Docker Desktop
