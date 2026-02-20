@@ -1,12 +1,19 @@
 ; ===============================================================================
-; MEGAM ARG Detection — Installeur Windows (Inno Setup)
+; MEGAM ARG Detection — Installeur Windows (Inno Setup 6)
+;
+; Cet installeur :
+;   1. Affiche une page de prérequis (WSL2, Docker, espace disque)
+;   2. Installe WSL2 si absent (via wsl --install)
+;   3. Télécharge et installe Docker Desktop si absent (via PowerShell)
+;   4. Copie les fichiers de l'application
+;   5. Crée des raccourcis bureau + menu démarrer
+;   6. Propose de lancer l'application
 ; ===============================================================================
 
 #define MyAppName "MEGAM ARG Detection"
 #define MyAppVersion "3.2"
 #define MyAppPublisher "Rachid Merah"
 #define MyAppURL "https://github.com/rmerah/megam-arg-docker"
-#define MyAppExeName "megam-launcher.ps1"
 
 [Setup]
 AppId={{B5E8F4A2-3C7D-4E9B-A1F6-2D8E9C0B7A3F}
@@ -18,6 +25,7 @@ DefaultDirName={commonpf}\MEGAM-ARG
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputBaseFilename=MEGAM-ARG-Detection-Setup-{#MyAppVersion}
+OutputDir=Output
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -42,7 +50,7 @@ Source: "..\installer\megam-launcher.ps1"; DestDir: "{app}\installer"
 Source: "..\installer\megam-stop.ps1"; DestDir: "{app}\installer"
 Source: "..\installer\check-docker.ps1"; DestDir: "{app}\installer"
 Source: "..\installer\icon.ico"; DestDir: "{app}\installer"
-Source: "..\.env.example"; DestDir: "{app}"; DestName: ".env"
+Source: "..\.env.example"; DestDir: "{app}"; DestName: ".env"; Flags: onlyifdoesntexist
 
 [Icons]
 Name: "{commondesktop}\{#MyAppName}"; Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\installer\megam-launcher.ps1"""; IconFilename: "{app}\installer\icon.ico"; Comment: "Lancer {#MyAppName}"
@@ -58,200 +66,227 @@ Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -WindowStyle Hi
 Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -File ""{app}\installer\megam-stop.ps1"""; Flags: runhidden waituntilterminated
 
 [Code]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Variables globales
+// ─────────────────────────────────────────────────────────────────────────────
 var
   PrereqPage: TWizardPage;
-  WSLLabel, DockerLabel, DiskLabel: TNewStaticText;
-  WSLInstalled, DockerInstalled: Boolean;
-  NeedsRestart: Boolean;
+  LabelWSL, LabelDocker, LabelDisk: TNewStaticText;
+  WSLReady, DockerReady: Boolean;
+  RestartNeeded: Boolean;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Vérification des prérequis
+// Détection WSL2
 // ─────────────────────────────────────────────────────────────────────────────
-
-function IsWSLInstalled: Boolean;
+function CheckWSL: Boolean;
 var
-  ResultCode: Integer;
+  ExitCode: Integer;
 begin
-  Result := Exec('cmd.exe', '/c wsl --status >nul 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
-end;
-
-function IsDockerInstalled: Boolean;
-begin
-  Result := FileExists(ExpandConstant('{commonpf}\Docker\Docker\Docker Desktop.exe')) or
-            FileExists(ExpandConstant('{localappdata}\Docker\Docker Desktop.exe'));
-end;
-
-function GetFreeDiskSpaceGB: Integer;
-var
-  FreeSpace: Int64;
-begin
-  GetSpaceOnDisk(ExpandConstant('{commonpf}'), True, FreeSpace, FreeSpace);
-  Result := FreeSpace div (1024 * 1024 * 1024);
+  // wsl --status retourne 0 si WSL est installé et fonctionnel
+  Exec('cmd.exe', '/c wsl --status >nul 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  Result := (ExitCode = 0);
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Page de vérification des prérequis
+// Détection Docker Desktop
 // ─────────────────────────────────────────────────────────────────────────────
+function CheckDocker: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{commonpf}\Docker\Docker\Docker Desktop.exe'));
+  if not Result then
+    Result := FileExists(ExpandConstant('{localappdata}\Docker\Docker Desktop.exe'));
+end;
 
-procedure CreatePrereqPage;
+// ─────────────────────────────────────────────────────────────────────────────
+// Espace disque libre (en Go)
+// ─────────────────────────────────────────────────────────────────────────────
+function FreeDiskGB: Integer;
 var
-  FreeDisk: Integer;
-  StatusText: String;
+  FreeBytes, TotalBytes: Int64;
+begin
+  GetSpaceOnDisk(ExpandConstant('{sd}'), True, FreeBytes, TotalBytes);
+  Result := FreeBytes div 1073741824;  // 1024^3
+end;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Création de la page de prérequis
+// ─────────────────────────────────────────────────────────────────────────────
+procedure BuildPrereqPage;
+var
+  DiskGB: Integer;
+  Marker: String;
 begin
   PrereqPage := CreateCustomPage(wpWelcome,
     'Vérification des prérequis',
-    'L''installeur vérifie les composants nécessaires au fonctionnement de ' + '{#MyAppName}');
+    'L''installeur vérifie les composants nécessaires.');
 
-  WSLInstalled := IsWSLInstalled;
-  DockerInstalled := IsDockerInstalled;
-  FreeDisk := GetFreeDiskSpaceGB;
+  WSLReady := CheckWSL;
+  DockerReady := CheckDocker;
+  DiskGB := FreeDiskGB;
 
-  // WSL2
-  WSLLabel := TNewStaticText.Create(WizardForm);
-  WSLLabel.Parent := PrereqPage.Surface;
-  WSLLabel.Left := 0;
-  WSLLabel.Top := 20;
-  WSLLabel.Width := PrereqPage.SurfaceWidth;
-  WSLLabel.AutoSize := False;
-  WSLLabel.WordWrap := True;
-  if WSLInstalled then
-    WSLLabel.Caption := '✓  WSL2 est installé'
+  // --- WSL2 ---
+  LabelWSL := TNewStaticText.Create(WizardForm);
+  LabelWSL.Parent := PrereqPage.Surface;
+  LabelWSL.Left := 0;
+  LabelWSL.Top := 16;
+  LabelWSL.Width := PrereqPage.SurfaceWidth;
+  LabelWSL.Height := 70;
+  LabelWSL.AutoSize := False;
+  LabelWSL.WordWrap := True;
+  if WSLReady then
+    LabelWSL.Caption := '[OK]  WSL2 est installé'
   else
-    WSLLabel.Caption := '✗  WSL2 n''est PAS installé' + #13#10 +
-      '     → Installation automatique (~3 min)' + #13#10 +
-      '     → Un redémarrage sera nécessaire';
+    LabelWSL.Caption :=
+      '[MANQUANT]  WSL2 n''est pas installé' + #13#10 +
+      '     > Installation automatique (~3 min)' + #13#10 +
+      '     > Un redémarrage sera nécessaire après l''installation';
 
-  // Docker Desktop
-  DockerLabel := TNewStaticText.Create(WizardForm);
-  DockerLabel.Parent := PrereqPage.Surface;
-  DockerLabel.Left := 0;
-  DockerLabel.Top := 90;
-  DockerLabel.Width := PrereqPage.SurfaceWidth;
-  DockerLabel.AutoSize := False;
-  DockerLabel.WordWrap := True;
-  if DockerInstalled then
-    DockerLabel.Caption := '✓  Docker Desktop est installé'
+  // --- Docker Desktop ---
+  LabelDocker := TNewStaticText.Create(WizardForm);
+  LabelDocker.Parent := PrereqPage.Surface;
+  LabelDocker.Left := 0;
+  LabelDocker.Top := 96;
+  LabelDocker.Width := PrereqPage.SurfaceWidth;
+  LabelDocker.Height := 70;
+  LabelDocker.AutoSize := False;
+  LabelDocker.WordWrap := True;
+  if DockerReady then
+    LabelDocker.Caption := '[OK]  Docker Desktop est installé'
   else
-    DockerLabel.Caption := '✗  Docker Desktop n''est PAS installé' + #13#10 +
-      '     → Installation automatique (~5 min)' + #13#10 +
-      '     → Téléchargement ~500 MB';
+    LabelDocker.Caption :=
+      '[MANQUANT]  Docker Desktop n''est pas installé' + #13#10 +
+      '     > Téléchargement et installation automatiques (~5 min)' + #13#10 +
+      '     > Téléchargement : environ 500 Mo';
 
-  // Espace disque
-  DiskLabel := TNewStaticText.Create(WizardForm);
-  DiskLabel.Parent := PrereqPage.Surface;
-  DiskLabel.Left := 0;
-  DiskLabel.Top := 160;
-  DiskLabel.Width := PrereqPage.SurfaceWidth;
-  DiskLabel.AutoSize := False;
-  if FreeDisk >= 10 then
-    StatusText := '✓'
-  else
-    StatusText := '✗';
-  DiskLabel.Caption := StatusText + '  Espace disque : ' + IntToStr(FreeDisk) + ' GB libres (minimum : 10 GB)';
+  // --- Espace disque ---
+  if DiskGB >= 10 then Marker := '[OK]' else Marker := '[INSUFFISANT]';
+  LabelDisk := TNewStaticText.Create(WizardForm);
+  LabelDisk.Parent := PrereqPage.Surface;
+  LabelDisk.Left := 0;
+  LabelDisk.Top := 180;
+  LabelDisk.Width := PrereqPage.SurfaceWidth;
+  LabelDisk.AutoSize := False;
+  LabelDisk.Caption := Marker + '  Espace disque libre : ' + IntToStr(DiskGB) + ' Go  (minimum requis : 10 Go)';
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Installation WSL2
+// Installation WSL2 via wsl --install
 // ─────────────────────────────────────────────────────────────────────────────
-
-function InstallWSL: Boolean;
+function DoInstallWSL: Boolean;
 var
-  ResultCode: Integer;
+  ExitCode: Integer;
 begin
-  WizardForm.StatusLabel.Caption := 'Activation de WSL2... (~3 minutes)';
-  Result := Exec('cmd.exe', '/c wsl --install --no-distribution', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  if Result and (ResultCode = 0) then
-  begin
-    NeedsRestart := True;
-  end;
+  Result := Exec('cmd.exe', '/c wsl --install --no-distribution',
+                 '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  Result := Result and (ExitCode = 0);
+  if Result then
+    RestartNeeded := True;
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Installation Docker Desktop
+// Téléchargement + installation Docker Desktop via PowerShell
+// Utilise Invoke-WebRequest natif (pas de plugin externe)
 // ─────────────────────────────────────────────────────────────────────────────
-
-function DownloadAndInstallDocker: Boolean;
+function DoInstallDocker: Boolean;
 var
-  ResultCode: Integer;
-  DockerInstaller: String;
+  ExitCode: Integer;
+  PSCmd: String;
 begin
-  DockerInstaller := ExpandConstant('{tmp}\DockerDesktopInstaller.exe');
-  Result := False;
+  // Script PowerShell inline :
+  //   1. Télécharge Docker Desktop Installer dans %TEMP%
+  //   2. Lance l'installation silencieuse
+  PSCmd := '-ExecutionPolicy Bypass -Command "' +
+    '$ErrorActionPreference = ''Stop''; ' +
+    '$installer = Join-Path $env:TEMP ''DockerDesktopInstaller.exe''; ' +
+    'Write-Host ''Telechargement de Docker Desktop...''; ' +
+    '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; ' +
+    'Invoke-WebRequest -Uri ''https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe'' -OutFile $installer -UseBasicParsing; ' +
+    'Write-Host ''Installation de Docker Desktop...''; ' +
+    'Start-Process -FilePath $installer -ArgumentList ''install --quiet --accept-license'' -Wait; ' +
+    'Remove-Item $installer -Force -ErrorAction SilentlyContinue; ' +
+    'Write-Host ''Installation terminee.''"';
 
-  // Télécharger Docker Desktop
-  WizardForm.StatusLabel.Caption := 'Téléchargement de Docker Desktop... (~500 MB)';
-  if idpDownloadFile('https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe', DockerInstaller) then
-  begin
-    // Installation silencieuse
-    WizardForm.StatusLabel.Caption := 'Installation de Docker Desktop... (~5 minutes)';
-    Result := Exec(DockerInstaller, 'install --quiet --accept-license', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    if Result and (ResultCode = 0) then
-    begin
-      NeedsRestart := True;
-    end;
-  end;
+  Result := Exec('powershell.exe', PSCmd, '', SW_SHOW, ewWaitUntilTerminated, ExitCode);
+  Result := Result and (ExitCode = 0);
+  if Result then
+    RestartNeeded := True;
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hooks Inno Setup
+// Hooks
 // ─────────────────────────────────────────────────────────────────────────────
-
 procedure InitializeWizard;
 begin
-  NeedsRestart := False;
-  CreatePrereqPage;
+  RestartNeeded := False;
+  BuildPrereqPage;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
 
-  // Si on quitte la page des prérequis
-  if CurPageID = PrereqPage.ID then
+  if CurPageID <> PrereqPage.ID then
+    Exit;
+
+  // 1. Espace disque
+  if FreeDiskGB < 10 then
   begin
-    // Vérifier l'espace disque
-    if GetFreeDiskSpaceGB < 10 then
+    MsgBox('Espace disque insuffisant (minimum 10 Go).', mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  // 2. WSL2
+  if not WSLReady then
+  begin
+    if MsgBox('WSL2 n''est pas installé. L''installer maintenant ?'
+              + #13#10 + '(Durée estimée : ~3 minutes, redémarrage nécessaire)',
+              mbConfirmation, MB_YESNO) = IDNO then
     begin
-      MsgBox('Espace disque insuffisant. Au moins 10 GB sont nécessaires.', mbError, MB_OK);
+      MsgBox('WSL2 est requis par Docker Desktop. L''installation ne peut pas continuer.',
+             mbError, MB_OK);
       Result := False;
       Exit;
     end;
-
-    // Installer WSL2 si nécessaire
-    if not WSLInstalled then
+    if not DoInstallWSL then
     begin
-      if MsgBox('WSL2 va être installé. Continuer ?', mbConfirmation, MB_YESNO) = IDNO then
-      begin
-        Result := False;
-        Exit;
-      end;
-      if not InstallWSL then
-      begin
-        MsgBox('Échec de l''installation de WSL2. Veuillez l''installer manuellement.', mbError, MB_OK);
-        Result := False;
-        Exit;
-      end;
+      MsgBox('L''installation de WSL2 a échoué.'
+             + #13#10 + 'Essayez manuellement : ouvrez PowerShell en admin et tapez : wsl --install',
+             mbError, MB_OK);
+      Result := False;
+      Exit;
     end;
+    MsgBox('WSL2 a été installé. Un redémarrage est nécessaire.'
+           + #13#10 + 'Après le redémarrage, relancez cet installeur.',
+           mbInformation, MB_OK);
+    RestartNeeded := True;
+  end;
 
-    // Installer Docker Desktop si nécessaire
-    if not DockerInstalled then
+  // 3. Docker Desktop
+  if not DockerReady then
+  begin
+    if MsgBox('Docker Desktop n''est pas installé. Le télécharger et l''installer maintenant ?'
+              + #13#10 + '(Téléchargement ~500 Mo, installation ~5 minutes)',
+              mbConfirmation, MB_YESNO) = IDNO then
     begin
-      if MsgBox('Docker Desktop va être téléchargé et installé (~500 MB). Continuer ?', mbConfirmation, MB_YESNO) = IDNO then
-      begin
-        Result := False;
-        Exit;
-      end;
-      if not DownloadAndInstallDocker then
-      begin
-        MsgBox('Échec de l''installation de Docker Desktop. Veuillez l''installer manuellement depuis docker.com', mbError, MB_OK);
-        Result := False;
-        Exit;
-      end;
+      MsgBox('Docker Desktop est requis. L''installation ne peut pas continuer.',
+             mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+    if not DoInstallDocker then
+    begin
+      MsgBox('L''installation de Docker Desktop a échoué.'
+             + #13#10 + 'Téléchargez-le manuellement sur https://www.docker.com/products/docker-desktop/',
+             mbError, MB_OK);
+      Result := False;
+      Exit;
     end;
   end;
 end;
 
 function NeedRestart: Boolean;
 begin
-  Result := NeedsRestart;
+  Result := RestartNeeded;
 end;

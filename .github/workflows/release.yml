@@ -1,0 +1,149 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (ex: v3.2.0)'
+        required: true
+        default: 'v3.2.0'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/megam-arg-detection
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1 : Build et push de l'image Docker sur GHCR
+  # ─────────────────────────────────────────────────────────────────────────
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2 : Compilation de l'installeur Windows (.exe) avec Inno Setup
+  # ─────────────────────────────────────────────────────────────────────────
+  installer:
+    runs-on: windows-latest
+    needs: docker
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate application icon
+        shell: pwsh
+        run: |
+          # Générer un .ico minimal via PowerShell/.NET
+          Add-Type -AssemblyName System.Drawing
+          $bmp = New-Object System.Drawing.Bitmap(256, 256)
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.Clear([System.Drawing.Color]::FromArgb(34, 87, 122))
+          # Lettres "ARG" en blanc
+          $font = New-Object System.Drawing.Font("Arial", 72, [System.Drawing.FontStyle]::Bold)
+          $brush = [System.Drawing.Brushes]::White
+          $sf = New-Object System.Drawing.StringFormat
+          $sf.Alignment = [System.Drawing.StringAlignment]::Center
+          $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+          $rect = New-Object System.Drawing.RectangleF(0, 0, 256, 256)
+          $g.DrawString("ARG", $font, $brush, $rect, $sf)
+          $g.Dispose()
+          # Sauvegarder comme .ico (via bitmap intermédiaire)
+          $icon = [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
+          $stream = [System.IO.File]::Create("installer/icon.ico")
+          $icon.Save($stream)
+          $stream.Close()
+          $bmp.Dispose()
+          Write-Host "Icon generated: installer/icon.ico"
+
+      - name: Compile installer with Inno Setup
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.4
+        with:
+          path: installer/megam-installer.iss
+
+      - name: Extract version for release
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "MEGAM ARG Detection ${{ steps.version.outputs.tag }}"
+          body: |
+            ## MEGAM ARG Detection — ${{ steps.version.outputs.tag }}
+
+            ### Installation sur Windows
+
+            1. **Téléchargez** le fichier `MEGAM-ARG-Detection-Setup-3.2.exe` ci-dessous
+            2. **Double-cliquez** dessus et suivez l'assistant d'installation
+            3. L'installeur vérifie et installe automatiquement **WSL2** et **Docker Desktop** si nécessaire
+            4. **Double-cliquez** sur le raccourci **MEGAM ARG Detection** sur votre bureau
+
+            ### Installation sur Linux (Docker)
+
+            ```bash
+            git clone https://github.com/${{ github.repository }}.git
+            cd megam-arg-docker
+            docker compose -f docker/docker-compose.yml up -d
+            # Ouvrir http://localhost:8080
+            ```
+
+            ### Durées estimées (premier lancement uniquement)
+
+            | Étape | Durée |
+            |-------|-------|
+            | Installation WSL2 (si absent) | ~3 min + redémarrage |
+            | Installation Docker Desktop (si absent) | ~5 min + redémarrage |
+            | Téléchargement de l'image Docker | ~10-15 min |
+            | Lancements suivants | ~10 secondes |
+          files: |
+            installer/Output/MEGAM-ARG-Detection-Setup-3.2.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
