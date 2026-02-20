@@ -179,12 +179,13 @@ if (-not (Test-DockerRunning)) {
 }
 
 # -----------------------------------------------------------------------------
-# 2. Verifier si l'image existe (premier lancement)
+# 2. Verifier si l'image existe
 # -----------------------------------------------------------------------------
 
 $imageExists = $false
 try {
     $images = docker images --format "{{.Repository}}:{{.Tag}}" 2>&1
+    "[$(Get-Date)] Images trouvees: $images" | Out-File $LogFile -Append
     if ($images -match "megam-arg") {
         $imageExists = $true
     }
@@ -192,64 +193,60 @@ try {
 
 "[$(Get-Date)] Image existe: $imageExists" | Out-File $LogFile -Append
 
+# -----------------------------------------------------------------------------
+# 3. Demarrer l'application (pull + start en une seule commande)
+#    docker compose up -d telecharge l'image automatiquement si absente
+# -----------------------------------------------------------------------------
+
+Set-Location $AppDir
+
 if (-not $imageExists) {
-    # Premier lancement : pull l'image depuis GHCR
-    "[$(Get-Date)] Debut du pull de l'image..." | Out-File $LogFile -Append
-    $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Telechargement de l'application... (~10-15 minutes)`nCette etape n'est necessaire qu'une seule fois."
+    # Premier lancement : le pull va prendre du temps
+    "[$(Get-Date)] Premier lancement, pull + start..." | Out-File $LogFile -Append
+    $form = Show-Progress -Title "MEGAM ARG Detection - Premier lancement" -Message "Telechargement de l'application (~10-15 min)...`nCette etape n'est necessaire qu'une seule fois.`nLa progression s'affiche dans la fenetre noire."
     $form.Refresh()
 
-    try {
-        Set-Location $AppDir
-        # Lancer docker compose pull dans une fenetre cmd visible
-        $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" pull & pause'
-        $pullProcess = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -PassThru -Wait
-        if ($pullProcess.ExitCode -ne 0) {
-            # Fallback : build local (visible aussi)
-            "[$(Get-Date)] Pull echoue, tentative de build local..." | Out-File $LogFile -Append
-            $form.Close()
-            $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Construction de l'image en local... (~20-30 minutes)`nCette etape n'est necessaire qu'une seule fois."
-            $form.Refresh()
-            $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" build & pause'
-            $buildProcess = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -PassThru -Wait
-            if ($buildProcess.ExitCode -ne 0) {
-                throw "Build failed"
-            }
-        }
-    } catch {
-        $form.Close()
-        "[$(Get-Date)] ERREUR pull/build: $($_.Exception.Message)" | Out-File $LogFile -Append
-        Show-Error ("Echec du telechargement de l'image Docker.`n`n" +
+    # Lancer dans une fenetre cmd visible pour voir la progression du pull
+    $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" up -d'
+    "[$(Get-Date)] Commande: cmd.exe $cmdArgs" | Out-File $LogFile -Append
+    $proc = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -PassThru -Wait
+    $exitCode = $proc.ExitCode
+    "[$(Get-Date)] Exit code: $exitCode" | Out-File $LogFile -Append
+
+    $form.Close()
+
+    if ($exitCode -ne 0) {
+        $logs = ""
+        try { $logs = docker compose -f $ComposeFile logs --tail=30 2>&1 | Out-String } catch {}
+        "[$(Get-Date)] ERREUR docker up: exit code $exitCode" | Out-File $LogFile -Append
+        Show-Error ("Echec du telechargement ou du demarrage.`n`n" +
             "Verifiez :`n" +
             "- Votre connexion Internet`n" +
             "- Que Docker Desktop est bien lance (icone baleine dans la barre des taches)`n`n" +
-            "Puis reessayez en double-cliquant sur le raccourci MEGAM ARG Detection.") $_.Exception.Message
+            "Puis reessayez en double-cliquant sur le raccourci MEGAM ARG Detection.") $logs
+        exit 1
+    }
+} else {
+    # Image deja presente, demarrage rapide
+    "[$(Get-Date)] Image existante, demarrage rapide..." | Out-File $LogFile -Append
+    $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Demarrage de l'application... (~10 secondes)"
+
+    try {
+        $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" up -d'
+        $proc = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -PassThru -Wait
+        if ($proc.ExitCode -ne 0) {
+            throw "docker compose up failed (exit code: $($proc.ExitCode))"
+        }
+    } catch {
+        $form.Close()
+        $logs = ""
+        try { $logs = docker compose -f $ComposeFile logs --tail=30 2>&1 | Out-String } catch {}
+        "[$(Get-Date)] ERREUR docker up: $($_.Exception.Message)" | Out-File $LogFile -Append
+        Show-Error "Echec du demarrage de l'application." $logs
         exit 1
     }
 
     $form.Close()
-    "[$(Get-Date)] Image telechargee avec succes" | Out-File $LogFile -Append
-}
-
-# -----------------------------------------------------------------------------
-# 3. Demarrer l'application
-# -----------------------------------------------------------------------------
-
-"[$(Get-Date)] Demarrage de l'application..." | Out-File $LogFile -Append
-$form = Show-Progress -Title "MEGAM ARG Detection" -Message "Demarrage de l'application... (~10 secondes)"
-
-try {
-    Set-Location $AppDir
-    $upProcess = Start-Process -FilePath "docker" -ArgumentList ('compose -f "' + $ComposeFile + '" up -d') -PassThru -Wait -NoNewWindow
-    if ($upProcess.ExitCode -ne 0) {
-        throw "docker compose up failed"
-    }
-} catch {
-    $form.Close()
-    $logs = ""
-    try { $logs = docker compose -f $ComposeFile logs --tail=30 2>&1 | Out-String } catch {}
-    "[$(Get-Date)] ERREUR docker up: $($_.Exception.Message)" | Out-File $LogFile -Append
-    Show-Error "Echec du demarrage de l'application." $logs
-    exit 1
 }
 
 # -----------------------------------------------------------------------------
