@@ -3,6 +3,14 @@
 # Ce script est exécuté par le raccourci bureau
 #===============================================================================
 
+# Log file pour debug
+$LogFile = "$env:TEMP\megam-launcher.log"
+"[$(Get-Date)] MEGAM Launcher démarré" | Out-File $LogFile -Append
+
+# Charger WinForms en tout premier
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
 $ErrorActionPreference = "Stop"
 
 # Chemins
@@ -112,10 +120,19 @@ function Wait-ForApp {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# DÉBUT — Tout est wrappé dans un try/catch global
+# ─────────────────────────────────────────────────────────────────────────────
+
+try {
+
+"[$(Get-Date)] Vérification de Docker..." | Out-File $LogFile -Append
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 0. Vérifier que Docker Desktop est installé
 # ─────────────────────────────────────────────────────────────────────────────
 
 if (-not (Test-DockerInstalled)) {
+    "[$(Get-Date)] Docker Desktop non trouvé" | Out-File $LogFile -Append
     Show-Error ("Docker Desktop n'est pas installé.`n`n" +
         "Pour l'installer :`n" +
         "1. Ouvrez votre navigateur (Chrome, Edge, Firefox...)`n" +
@@ -129,11 +146,14 @@ if (-not (Test-DockerInstalled)) {
     exit 1
 }
 
+"[$(Get-Date)] Docker Desktop trouvé" | Out-File $LogFile -Append
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Vérifier et lancer Docker Desktop
 # ─────────────────────────────────────────────────────────────────────────────
 
 if (-not (Test-DockerRunning)) {
+    "[$(Get-Date)] Docker pas en cours, tentative de démarrage..." | Out-File $LogFile -Append
     # Chercher Docker Desktop
     $dockerExe = $null
     $paths = @(
@@ -152,9 +172,12 @@ if (-not (Test-DockerRunning)) {
     $form.Close()
 
     if (-not $dockerReady) {
+        "[$(Get-Date)] Docker Desktop timeout après 120s" | Out-File $LogFile -Append
         Show-Error "Docker Desktop ne démarre pas après 2 minutes.`nVeuillez le relancer manuellement depuis le menu Démarrer, puis réessayez."
         exit 1
     }
+} else {
+    "[$(Get-Date)] Docker déjà en cours d'exécution" | Out-File $LogFile -Append
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -169,42 +192,49 @@ try {
     }
 } catch {}
 
+"[$(Get-Date)] Image existe: $imageExists" | Out-File $LogFile -Append
+
 if (-not $imageExists) {
     # Premier lancement : pull l'image depuis GHCR
-    $form = Show-Progress -Title "MEGAM ARG Detection — Premier lancement" -Message "Téléchargement de l'application... (~10-15 minutes)`nCette étape n'est nécessaire qu'une seule fois.`nUne fenêtre va s'ouvrir pour montrer la progression."
+    "[$(Get-Date)] Début du pull de l'image..." | Out-File $LogFile -Append
+    $form = Show-Progress -Title "MEGAM ARG Detection — Premier lancement" -Message "Téléchargement de l'application... (~10-15 minutes)`nCette étape n'est nécessaire qu'une seule fois."
     $form.Refresh()
 
     try {
         Set-Location $AppDir
-        # Montrer la progression du pull dans une fenêtre visible
-        $pullProcess = Start-Process -FilePath "docker" -ArgumentList "compose -f `"$ComposeFile`" pull" -PassThru -Wait -NoNewWindow
+        # Montrer la progression du pull dans une fenêtre cmd visible
+        $pullProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c docker compose -f `"$ComposeFile`" pull 2>&1 && pause || (echo. & echo ECHEC DU TELECHARGEMENT & pause)" -PassThru -Wait
         if ($pullProcess.ExitCode -ne 0) {
             # Fallback : build local (visible aussi)
+            "[$(Get-Date)] Pull échoué, tentative de build local..." | Out-File $LogFile -Append
             $form.Close()
             $form = Show-Progress -Title "MEGAM ARG Detection — Construction" -Message "Construction de l'image en local... (~20-30 minutes)`nCette étape n'est nécessaire qu'une seule fois."
             $form.Refresh()
-            $buildProcess = Start-Process -FilePath "docker" -ArgumentList "compose -f `"$ComposeFile`" build" -PassThru -Wait -NoNewWindow
+            $buildProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c docker compose -f `"$ComposeFile`" build 2>&1 && pause || (echo. & echo ECHEC DE LA CONSTRUCTION & pause)" -PassThru -Wait
             if ($buildProcess.ExitCode -ne 0) {
                 throw "Build failed"
             }
         }
     } catch {
         $form.Close()
+        "[$(Get-Date)] ERREUR pull/build: $($_.Exception.Message)" | Out-File $LogFile -Append
         Show-Error ("Échec du téléchargement de l'image Docker.`n`n" +
             "Vérifiez :`n" +
             "- Votre connexion Internet`n" +
-            "- Que Docker Desktop est bien lancé (icône dans la barre des tâches)`n`n" +
+            "- Que Docker Desktop est bien lancé (icône baleine dans la barre des tâches)`n`n" +
             "Puis réessayez en double-cliquant sur le raccourci MEGAM ARG Detection.") $_.Exception.Message
         exit 1
     }
 
     $form.Close()
+    "[$(Get-Date)] Image téléchargée avec succès" | Out-File $LogFile -Append
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Démarrer l'application
 # ─────────────────────────────────────────────────────────────────────────────
 
+"[$(Get-Date)] Démarrage de l'application..." | Out-File $LogFile -Append
 $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Démarrage de l'application... (~10 secondes)"
 
 try {
@@ -217,6 +247,7 @@ try {
     $form.Close()
     $logs = ""
     try { $logs = docker compose -f $ComposeFile logs --tail=30 2>&1 | Out-String } catch {}
+    "[$(Get-Date)] ERREUR docker up: $($_.Exception.Message)" | Out-File $LogFile -Append
     Show-Error "Échec du démarrage de l'application." $logs
     exit 1
 }
@@ -225,17 +256,34 @@ try {
 # 4. Attendre que l'app soit prête et ouvrir le navigateur
 # ─────────────────────────────────────────────────────────────────────────────
 
+"[$(Get-Date)] Attente de l'application sur le port $Port..." | Out-File $LogFile -Append
 $appReady = Wait-ForApp -TimeoutSeconds 180
 $form.Close()
 
 if ($appReady) {
+    "[$(Get-Date)] Application prête, ouverture du navigateur" | Out-File $LogFile -Append
     Start-Process "http://localhost:$Port"
 } else {
     $logs = ""
     try { $logs = docker compose -f $ComposeFile logs --tail=50 2>&1 | Out-String } catch {}
+    "[$(Get-Date)] Application ne répond pas après 180s" | Out-File $LogFile -Append
     Show-Error ("L'application ne répond pas après 3 minutes.`n`n" +
         "Essayez :`n" +
         "1. Ouvrez Docker Desktop et vérifiez que le conteneur 'megam-arg' est en cours d'exécution`n" +
         "2. Si le conteneur est arrêté, relancez MEGAM ARG Detection`n" +
         "3. Si le problème persiste, redémarrez Docker Desktop") $logs
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+} catch {
+    # Erreur inattendue — toujours montrer quelque chose à l'utilisateur
+    $errorMsg = $_.Exception.Message
+    $errorLine = $_.InvocationInfo.ScriptLineNumber
+    "[$(Get-Date)] ERREUR FATALE ligne $errorLine : $errorMsg" | Out-File $LogFile -Append
+    [System.Windows.Forms.MessageBox]::Show(
+        "Une erreur inattendue s'est produite :`n`n$errorMsg`n`n(ligne $errorLine)`n`nConsultez le log : $LogFile",
+        "MEGAM ARG — Erreur",
+        "OK",
+        "Error"
+    )
 }
