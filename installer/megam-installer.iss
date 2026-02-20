@@ -33,6 +33,7 @@ PrivilegesRequired=admin
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\installer\icon.ico
 MinVersion=10.0
+ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
@@ -95,8 +96,11 @@ function CheckDocker: Boolean;
 var
   ExitCode: Integer;
 begin
-  // Chemin classique (installation système)
-  Result := FileExists(ExpandConstant('{commonpf}\Docker\Docker\Docker Desktop.exe'));
+  // Chemin classique (installation système, 64-bit)
+  Result := FileExists(ExpandConstant('{commonpf64}\Docker\Docker\Docker Desktop.exe'));
+  // Chemin classique (installation système, 32-bit fallback)
+  if not Result then
+    Result := FileExists(ExpandConstant('{commonpf}\Docker\Docker\Docker Desktop.exe'));
   // Chemin per-user (anciennes versions)
   if not Result then
     Result := FileExists(ExpandConstant('{localappdata}\Docker\Docker Desktop.exe'));
