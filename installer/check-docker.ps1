@@ -19,13 +19,20 @@ function Test-WSL {
 }
 
 function Test-DockerDesktop {
-    # Vérifier si Docker Desktop est installé
-    $dockerPath = "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe"
-    if (Test-Path $dockerPath) { return $true }
-
-    $dockerPath2 = "${env:LOCALAPPDATA}\Docker\Docker Desktop.exe"
-    if (Test-Path $dockerPath2) { return $true }
-
+    # Vérifier si Docker Desktop est installé (plusieurs chemins possibles)
+    $paths = @(
+        "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe",
+        "${env:LOCALAPPDATA}\Docker\Docker Desktop.exe",
+        "${env:LOCALAPPDATA}\Programs\Docker\Docker\Docker Desktop.exe"
+    )
+    foreach ($p in $paths) {
+        if (Test-Path $p) { return $true }
+    }
+    # Dernier recours : vérifier si docker est dans le PATH
+    try {
+        $null = docker --version 2>&1
+        if ($LASTEXITCODE -eq 0) { return $true }
+    } catch {}
     return $false
 }
 

@@ -89,12 +89,26 @@ end;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Détection Docker Desktop
+// Vérifie plusieurs chemins d'installation possibles + la commande docker
 // ─────────────────────────────────────────────────────────────────────────────
 function CheckDocker: Boolean;
+var
+  ExitCode: Integer;
 begin
+  // Chemin classique (installation système)
   Result := FileExists(ExpandConstant('{commonpf}\Docker\Docker\Docker Desktop.exe'));
+  // Chemin per-user (anciennes versions)
   if not Result then
     Result := FileExists(ExpandConstant('{localappdata}\Docker\Docker Desktop.exe'));
+  // Chemin per-user (versions récentes : %LOCALAPPDATA%\Programs\Docker\Docker\)
+  if not Result then
+    Result := FileExists(ExpandConstant('{localappdata}\Programs\Docker\Docker\Docker Desktop.exe'));
+  // Dernier recours : vérifier si la commande docker est dans le PATH
+  if not Result then
+  begin
+    Exec('cmd.exe', '/c docker --version >nul 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+    Result := (ExitCode = 0);
+  end;
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────

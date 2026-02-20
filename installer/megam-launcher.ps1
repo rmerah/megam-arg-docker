@@ -103,13 +103,18 @@ function Wait-ForApp {
 # ─────────────────────────────────────────────────────────────────────────────
 
 if (-not (Test-DockerRunning)) {
-    # Chercher Docker Desktop
-    $dockerExe = "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe"
-    if (-not (Test-Path $dockerExe)) {
-        $dockerExe = "${env:LOCALAPPDATA}\Docker\Docker Desktop.exe"
+    # Chercher Docker Desktop dans tous les chemins possibles
+    $dockerExe = $null
+    $paths = @(
+        "${env:ProgramFiles}\Docker\Docker\Docker Desktop.exe",
+        "${env:LOCALAPPDATA}\Docker\Docker Desktop.exe",
+        "${env:LOCALAPPDATA}\Programs\Docker\Docker\Docker Desktop.exe"
+    )
+    foreach ($p in $paths) {
+        if (Test-Path $p) { $dockerExe = $p; break }
     }
 
-    if (-not (Test-Path $dockerExe)) {
+    if (-not $dockerExe) {
         Show-Error "Docker Desktop n'est pas installé.`nVeuillez réinstaller MEGAM ARG Detection."
         exit 1
     }
