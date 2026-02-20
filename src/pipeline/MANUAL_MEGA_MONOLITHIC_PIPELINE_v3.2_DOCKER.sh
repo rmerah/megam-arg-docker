@@ -3648,7 +3648,6 @@ log_info "6.2 Génération des rapports..."
     echo "6. ANALYSE ET RAPPORTS"
     echo "   - Rapport texte: Complété"
     echo "   - Rapport HTML professionnel: Complété"
-    echo "   - Extraction features ML: Complété"
     echo ""
     echo "================================================================================"
     echo "FICHIERS PRINCIPAUX GÉNÉRÉS"
@@ -3663,7 +3662,6 @@ log_info "6.2 Génération des rapports..."
     if [[ "$IS_ASSEMBLED_INPUT" == false ]]; then
         ls -1 "$RESULTS_DIR"/05_variant_calling/*_variants.vcf 2>/dev/null | head -1 | sed 's|^|  - |' || true
     fi
-    echo "  - 06_analysis/features_ml.csv (ML features)"
 } > "$RESULTS_DIR"/06_analysis/reports/"${SAMPLE_ID}"_summary.txt
 
 log_success "Rapport texte généré"
@@ -3714,54 +3712,6 @@ if [[ -f "$ARG_REPORT_SCRIPT" ]]; then
 else
     log_warn "Script de rapport ARG non trouvé: $ARG_REPORT_SCRIPT"
     log_warn "Le rapport HTML ne sera pas généré"
-fi
-
-#------- 6.4 Extraction des features pour Machine Learning -------
-log_info "6.4 Extraction des features pour Machine Learning..."
-
-FEATURES_SCRIPT="$PYTHON_DIR/collect_features.py"
-
-# Répertoire pour le dataset global ML (accumulation multi-échantillons)
-ML_DATASET_DIR="$SCRIPT_DIR/ml_datasets"
-mkdir -p "$ML_DATASET_DIR"
-GLOBAL_ML_DATASET="$ML_DATASET_DIR/global_features_dataset.csv"
-
-if [[ -f "$FEATURES_SCRIPT" ]]; then
-    # Préparer les paramètres
-    SPECIES_PARAM="${DETECTED_SPECIES:-unknown}"
-    MLST_PARAM="${MLST_ST:--}"
-
-    log_info "Extraction des features ML pour: $SAMPLE_ID"
-    log_info "  Espèce: $SPECIES_PARAM"
-    log_info "  MLST ST: $MLST_PARAM"
-
-    # Exécuter l'extraction
-    if python3 "$FEATURES_SCRIPT" \
-        --results-dir "$RESULTS_DIR" \
-        --sample-id "$SAMPLE_ID" \
-        --species "$SPECIES_PARAM" \
-        --mlst-st "$MLST_PARAM" \
-        --output "$RESULTS_DIR/06_analysis/features_ml.csv" \
-        --global-dataset "$GLOBAL_ML_DATASET" 2>&1 | tee -a "$LOG_FILE"; then
-
-        if [[ -f "$RESULTS_DIR/06_analysis/features_ml.csv" ]]; then
-            log_success "Features ML extraites: $RESULTS_DIR/06_analysis/features_ml.csv"
-            log_info "Dataset global mis à jour: $GLOBAL_ML_DATASET"
-
-            # Afficher un résumé rapide
-            if command -v head &> /dev/null; then
-                FEATURE_COUNT=$(head -1 "$RESULTS_DIR/06_analysis/features_ml.csv" | tr ',' '\n' | wc -l)
-                log_info "Nombre de features extraites: $FEATURE_COUNT"
-            fi
-        else
-            log_warn "Features ML: Le fichier CSV n'a pas été créé"
-        fi
-    else
-        log_error "Erreur lors de l'extraction des features ML"
-    fi
-else
-    log_warn "Script d'extraction ML non trouvé: $FEATURES_SCRIPT"
-    log_warn "Les features ML ne seront pas extraites"
 fi
 
 log_success "MODULE 6 TERMINÉ"
