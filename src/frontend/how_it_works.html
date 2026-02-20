@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEGAM ARG Detection - Comment ça marche ?</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .timeline-line { width: 4px; background: linear-gradient(to bottom, #3b82f6, #8b5cf6); }
+    .timeline-dot { width: 20px; height: 20px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 0 2px #3b82f6; }
+    .arrow-bounce { animation: bounce-right 2s infinite; }
+    @keyframes bounce-right {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(6px); }
+    }
+    .fade-in { animation: fadeIn 0.6s ease-in; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .code-block {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+    }
+    .code-block .key { color: #7dd3fc; }
+    .code-block .string { color: #86efac; }
+    .code-block .comment { color: #64748b; }
+    .code-block .method { color: #fbbf24; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+  <!-- HEADER -->
+  <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+      </div>
+      <nav class="flex gap-1 items-center flex-wrap">
+        <a href="form_launch_analysis.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Nouvelle Analyse
+        </a>
+        <a href="jobs_list.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Historique
+        </a>
+        <a href="databases.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Bases de données
+        </a>
+        <a href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Dashboard
+        </a>
+        <a href="how_it_works.html" class="bg-white text-blue-900 px-4 py-2 rounded font-medium hover:bg-blue-100 transition text-sm">
+          Comment ça marche ?
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- Titre principal -->
+    <div class="text-center mb-12 fade-in">
+      <h1 class="text-4xl font-bold text-gray-800 mb-3">Comment fonctionne MEGAM ARG Detection ?</h1>
+      <p class="text-lg text-gray-500 max-w-2xl mx-auto">
+        Une explication simple de l'architecture de l'application, de votre clic jusqu'aux résultats.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 1 : L'analogie du restaurant -->
+    <!-- ============================================================ -->
+    <section class="mb-16 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">L'analogie du restaurant</h2>
+      <p class="text-gray-600 mb-6">Pour comprendre l'architecture, imaginez un restaurant :</p>
+
+      <div class="grid md:grid-cols-3 gap-6 mb-8">
+        <!-- Frontend -->
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center">
+          <div class="text-5xl mb-3">🍽️</div>
+          <h3 class="text-xl font-bold text-blue-700 mb-2">La salle du restaurant</h3>
+          <p class="text-sm font-semibold text-blue-600 mb-3">= Le Frontend</p>
+          <p class="text-gray-600 text-sm">
+            C'est ce que vous voyez et touchez : les menus (formulaires), les tables (pages), la decoration (le design).
+            Vous passez commande ici.
+          </p>
+          <div class="mt-4 text-xs text-blue-500 font-mono bg-blue-100 rounded px-2 py-1">
+            HTML + CSS + JavaScript
+          </div>
+        </div>
+
+        <!-- API -->
+        <div class="bg-amber-50 border-2 border-amber-200 rounded-xl p-6 text-center">
+          <div class="text-5xl mb-3">🤵</div>
+          <h3 class="text-xl font-bold text-amber-700 mb-2">Le serveur</h3>
+          <p class="text-sm font-semibold text-amber-600 mb-3">= L'API</p>
+          <p class="text-gray-600 text-sm">
+            Il prend votre commande (requete HTTP), la transmet a la cuisine (backend),
+            et vous rapporte le plat (reponse JSON).
+          </p>
+          <div class="mt-4 text-xs text-amber-500 font-mono bg-amber-100 rounded px-2 py-1">
+            Routes /api/launch, /api/results...
+          </div>
+        </div>
+
+        <!-- Backend -->
+        <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6 text-center">
+          <div class="text-5xl mb-3">👨‍🍳</div>
+          <h3 class="text-xl font-bold text-green-700 mb-2">La cuisine</h3>
+          <p class="text-sm font-semibold text-green-600 mb-3">= Le Backend + Pipeline</p>
+          <p class="text-gray-600 text-sm">
+            C'est la ou le vrai travail se fait. Le chef (Python/FastAPI) coordonne les cuisiniers
+            (AMRFinderPlus, ResFinder, CARD...) pour preparer votre plat (resultats).
+          </p>
+          <div class="mt-4 text-xs text-green-500 font-mono bg-green-100 rounded px-2 py-1">
+            FastAPI + Pipeline Bash + Conda
+          </div>
+        </div>
+      </div>
+
+      <!-- Flèches de connexion -->
+      <div class="flex items-center justify-center gap-4 text-gray-400 mb-4">
+        <div class="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-semibold text-sm">Vous cliquez</div>
+        <span class="text-2xl arrow-bounce">&#10145;</span>
+        <div class="bg-amber-100 text-amber-600 px-4 py-2 rounded-lg font-semibold text-sm">L'API transmet</div>
+        <span class="text-2xl arrow-bounce">&#10145;</span>
+        <div class="bg-green-100 text-green-600 px-4 py-2 rounded-lg font-semibold text-sm">Le pipeline analyse</div>
+        <span class="text-2xl arrow-bounce">&#10145;</span>
+        <div class="bg-purple-100 text-purple-600 px-4 py-2 rounded-lg font-semibold text-sm">Resultats !</div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 2 : Du clic aux résultats -->
+    <!-- ============================================================ -->
+    <section class="mb-16 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">Du clic aux resultats : etape par etape</h2>
+      <p class="text-gray-600 mb-8">Voici exactement ce qu'il se passe quand vous lancez une analyse :</p>
+
+      <div class="relative">
+        <!-- Timeline line -->
+        <div class="absolute left-6 top-0 bottom-0 timeline-line hidden md:block"></div>
+
+        <!-- Étape 1 -->
+        <div class="relative flex gap-6 mb-10">
+          <div class="flex-shrink-0 z-10">
+            <div class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
+          </div>
+          <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+            <h3 class="text-lg font-bold text-blue-700 mb-2">Vous remplissez le formulaire</h3>
+            <p class="text-gray-600 text-sm mb-3">
+              Vous entrez un identifiant (ex: <code class="bg-gray-100 px-1 rounded">SRR28083254</code>) dans le formulaire
+              de la page "Nouvelle Analyse". Vous choisissez les options (threads, assembleur...) et cliquez sur <strong>"Lancer l'analyse"</strong>.
+            </p>
+            <div class="text-xs text-blue-500 font-mono">Frontend : form_launch_analysis.html</div>
+          </div>
+        </div>
+
+        <!-- Étape 2 -->
+        <div class="relative flex gap-6 mb-10">
+          <div class="flex-shrink-0 z-10">
+            <div class="w-12 h-12 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">2</div>
+          </div>
+          <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-amber-500">
+            <h3 class="text-lg font-bold text-amber-700 mb-2">Le navigateur envoie une requete HTTP</h3>
+            <p class="text-gray-600 text-sm mb-3">
+              Votre navigateur envoie une requete <strong>POST</strong> a l'API. C'est comme envoyer une lettre avec votre commande dedans.
+            </p>
+            <div class="code-block text-sm">
+              <span class="comment">// Le navigateur envoie ceci :</span><br>
+              <span class="method">POST</span> /api/launch<br><br>
+              {<br>
+              &nbsp;&nbsp;<span class="key">"sample_id"</span>: <span class="string">"SRR28083254"</span>,<br>
+              &nbsp;&nbsp;<span class="key">"threads"</span>: 4,<br>
+              &nbsp;&nbsp;<span class="key">"assembler"</span>: <span class="string">"megahit"</span><br>
+              }
+            </div>
+            <div class="mt-3 text-xs text-amber-500 font-mono">Frontend (api-client.js) &#10145; API (FastAPI)</div>
+          </div>
+        </div>
+
+        <!-- Étape 3 -->
+        <div class="relative flex gap-6 mb-10">
+          <div class="flex-shrink-0 z-10">
+            <div class="w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">3</div>
+          </div>
+          <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+            <h3 class="text-lg font-bold text-green-700 mb-2">Le backend cree le job et lance le pipeline</h3>
+            <p class="text-gray-600 text-sm mb-3">
+              FastAPI recoit la requete, cree une entree dans la base de donnees SQLite (status: <code class="bg-green-100 text-green-700 px-1 rounded">PENDING</code>),
+              puis lance le pipeline bash en arriere-plan. Le status passe a <code class="bg-yellow-100 text-yellow-700 px-1 rounded">RUNNING</code>.
+            </p>
+            <div class="code-block text-sm">
+              <span class="comment"># Le backend fait :</span><br>
+              1. INSERT INTO jobs (...) <span class="comment">-- cree le job en DB</span><br>
+              2. subprocess.Popen(pipeline.sh) <span class="comment">-- lance le pipeline</span><br>
+              3. return {<span class="key">"job_id"</span>: <span class="string">"abc123"</span>} <span class="comment">-- repond au frontend</span>
+            </div>
+            <div class="mt-3 text-xs text-green-500 font-mono">Backend : main.py + pipeline_launcher.py + database.py</div>
+          </div>
+        </div>
+
+        <!-- Étape 4 -->
+        <div class="relative flex gap-6 mb-10">
+          <div class="flex-shrink-0 z-10">
+            <div class="w-12 h-12 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">4</div>
+          </div>
+          <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
+            <h3 class="text-lg font-bold text-indigo-700 mb-2">Le monitoring en temps reel (polling)</h3>
+            <p class="text-gray-600 text-sm mb-3">
+              Le frontend demande regulierement des nouvelles au backend : <em>"Mon analyse, elle en est ou ?"</em>.
+              C'est comme demander au serveur toutes les 5 secondes si votre plat est pret.
+            </p>
+            <div class="code-block text-sm">
+              <span class="comment">// Toutes les 5 secondes :</span><br>
+              <span class="method">GET</span> /api/status/abc123<br><br>
+              <span class="comment">// Reponse :</span><br>
+              {<br>
+              &nbsp;&nbsp;<span class="key">"status"</span>: <span class="string">"RUNNING"</span>,<br>
+              &nbsp;&nbsp;<span class="key">"current_step"</span>: <span class="string">"AMRFinderPlus"</span>,<br>
+              &nbsp;&nbsp;<span class="key">"progress"</span>: <span class="string">"60%"</span><br>
+              }
+            </div>
+            <div class="mt-3 text-xs text-indigo-500 font-mono">Frontend (polling) &#8644; Backend (parsing logs)</div>
+          </div>
+        </div>
+
+        <!-- Étape 5 -->
+        <div class="relative flex gap-6 mb-10">
+          <div class="flex-shrink-0 z-10">
+            <div class="w-12 h-12 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">5</div>
+          </div>
+          <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+            <h3 class="text-lg font-bold text-purple-700 mb-2">Le pipeline bash fait le vrai travail</h3>
+            <p class="text-gray-600 text-sm mb-3">
+              Le script bash orchestre les outils bioinformatiques les uns apres les autres, chacun dans son environnement conda :
+            </p>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+              <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                <div class="text-2xl mb-1">📥</div>
+                <div class="text-xs font-semibold text-purple-700">Telechargement</div>
+                <div class="text-xs text-gray-500">SRA / GenBank</div>
+              </div>
+              <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                <div class="text-2xl mb-1">🔧</div>
+                <div class="text-xs font-semibold text-purple-700">Assemblage</div>
+                <div class="text-xs text-gray-500">SPAdes / MEGAHIT</div>
+              </div>
+              <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                <div class="text-2xl mb-1">🧬</div>
+                <div class="text-xs font-semibold text-purple-700">Annotation</div>
+                <div class="text-xs text-gray-500">Prokka</div>
+              </div>
+              <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                <div class="text-2xl mb-1">💊</div>
+                <div class="text-xs font-semibold text-purple-700">AMRFinderPlus</div>
+                <div class="text-xs text-gray-500">Detection ARG</div>
+              </div>
+              <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                <div class="text-2xl mb-1">🔬</div>
+                <div class="text-xs font-semibold text-purple-700">ResFinder</div>
+                <div class="text-xs text-gray-500">Detection ARG</div>
+              </div>
+              <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                <div class="text-2xl mb-1">🃏</div>
+                <div class="text-xs font-semibold text-purple-700">CARD / RGI</div>
+                <div class="text-xs text-gray-500">Detection ARG</div>
+              </div>
+            </div>
+            <div class="mt-3 text-xs text-purple-500 font-mono">Pipeline : MANUAL_MEGA_MONOLITHIC_PIPELINE_v3.2_WEB.sh</div>
+          </div>
+        </div>
+
+        <!-- Étape 6 -->
+        <div class="relative flex gap-6 mb-10">
+          <div class="flex-shrink-0 z-10">
+            <div class="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">6</div>
+          </div>
+          <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-emerald-500">
+            <h3 class="text-lg font-bold text-emerald-700 mb-2">Les resultats s'affichent</h3>
+            <p class="text-gray-600 text-sm mb-3">
+              Le pipeline est termine ! Le backend parse les fichiers de sortie (TSV, HTML) et les renvoie au frontend
+              sous forme de JSON. Le status passe a <code class="bg-green-100 text-green-700 px-1 rounded">COMPLETED</code>.
+            </p>
+            <div class="code-block text-sm">
+              <span class="method">GET</span> /api/results/abc123<br><br>
+              {<br>
+              &nbsp;&nbsp;<span class="key">"amrfinder"</span>: [{ <span class="key">"gene"</span>: <span class="string">"blaTEM-1"</span>, <span class="key">"resistance"</span>: <span class="string">"ampicillin"</span> }],<br>
+              &nbsp;&nbsp;<span class="key">"resfinder"</span>: [...],<br>
+              &nbsp;&nbsp;<span class="key">"card_rgi"</span>: [...]<br>
+              }
+            </div>
+            <div class="mt-3 text-xs text-emerald-500 font-mono">Backend (output_parser.py) &#10145; Frontend (page_results_arg.html)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 3 : Architecture Docker -->
+    <!-- ============================================================ -->
+    <section class="mb-16 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">Architecture dans Docker : qui fait quoi ?</h2>
+      <p class="text-gray-600 mb-6">Tout tourne dans un conteneur Docker. Voici comment les pieces s'assemblent :</p>
+
+      <div class="bg-white rounded-xl shadow-lg p-8 border-2 border-gray-200">
+        <!-- Internet -->
+        <div class="text-center mb-4">
+          <div class="inline-block bg-gray-100 border-2 border-gray-300 rounded-lg px-6 py-3">
+            <span class="text-2xl mr-2">🌐</span>
+            <span class="font-bold text-gray-700">Votre navigateur</span>
+            <span class="text-sm text-gray-500 ml-2">(Chrome, Firefox...)</span>
+          </div>
+        </div>
+
+        <div class="text-center text-gray-400 text-2xl mb-4">&#11015;</div>
+
+        <!-- Docker container -->
+        <div class="border-2 border-dashed border-blue-300 rounded-xl p-6 bg-blue-50/30">
+          <div class="text-center mb-4">
+            <span class="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold">Conteneur Docker</span>
+          </div>
+
+          <!-- Nginx -->
+          <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-5 mb-4">
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-3xl">🚪</span>
+              <div>
+                <h4 class="font-bold text-orange-700 text-lg">Nginx</h4>
+                <p class="text-sm text-gray-600">Le portier — il recoit TOUTES les requetes</p>
+              </div>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div class="bg-white rounded-lg p-4 border border-orange-200">
+                <p class="text-sm font-semibold text-blue-600 mb-1">Pages statiques (HTML, CSS, JS)</p>
+                <div class="code-block text-xs !p-2">
+                  GET /form_launch_analysis.html<br>
+                  <span class="comment">&#10145; Nginx sert le fichier directement</span>
+                </div>
+              </div>
+              <div class="bg-white rounded-lg p-4 border border-orange-200">
+                <p class="text-sm font-semibold text-amber-600 mb-1">Requetes API (/api/*)</p>
+                <div class="code-block text-xs !p-2">
+                  POST /api/launch<br>
+                  <span class="comment">&#10145; Nginx redirige vers Uvicorn (port 8000)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Backend + Pipeline -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-green-50 border-2 border-green-300 rounded-xl p-5">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="text-3xl">⚡</span>
+                <div>
+                  <h4 class="font-bold text-green-700">Uvicorn + FastAPI</h4>
+                  <p class="text-sm text-gray-500">Port 8000</p>
+                </div>
+              </div>
+              <p class="text-sm text-gray-600">
+                Le serveur Python qui traite les requetes API, gere la base de donnees SQLite, et lance le pipeline.
+              </p>
+              <div class="mt-2 text-xs text-green-500 font-mono">main.py, models.py, database.py</div>
+            </div>
+
+            <div class="bg-purple-50 border-2 border-purple-300 rounded-xl p-5">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="text-3xl">🧪</span>
+                <div>
+                  <h4 class="font-bold text-purple-700">Pipeline Bash</h4>
+                  <p class="text-sm text-gray-500">Subprocess</p>
+                </div>
+              </div>
+              <p class="text-sm text-gray-600">
+                Le script bash qui execute les outils bioinformatiques (AMRFinderPlus, ResFinder, CARD...) via conda.
+              </p>
+              <div class="mt-2 text-xs text-purple-500 font-mono">pipeline_v3.2_WEB.sh</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 4 : Glossaire -->
+    <!-- ============================================================ -->
+    <section class="mb-16 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">Glossaire : les termes techniques en simple</h2>
+      <p class="text-gray-600 mb-6">Pas de panique, voici la traduction :</p>
+
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <table class="w-full">
+          <thead>
+            <tr class="bg-blue-900 text-white">
+              <th class="text-left px-6 py-3 text-sm font-semibold">Terme technique</th>
+              <th class="text-left px-6 py-3 text-sm font-semibold">En simple</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-sm">Frontend</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">La partie visible de l'application : les pages, boutons, formulaires que vous utilisez.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-sm">Backend</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">La partie invisible qui fait les calculs, stocke les donnees et lance les analyses.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-sm">API</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Le "langage" que le frontend et le backend utilisent pour communiquer (des requetes HTTP avec du JSON).</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">HTTP / HTTPS</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Le protocole de communication du web. Comme le systeme postal, mais pour les donnees.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">GET / POST</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600"><strong>GET</strong> = demander des informations. <strong>POST</strong> = envoyer des informations.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">JSON</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Un format texte structure pour echanger des donnees. Comme un formulaire papier, mais pour les machines.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-sm">Nginx</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Le portier de l'application : il recoit toutes les requetes et les aiguille au bon endroit.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-sm">Uvicorn</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Le moteur qui fait tourner FastAPI. Il ecoute les requetes API et les traite.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-sm">FastAPI</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Le framework Python qui definit les routes API (<code>/api/launch</code>, <code>/api/results</code>...).</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-sm">Docker</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Une "boite" qui contient toute l'application et ses dependances, pour que ca marche partout pareil.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-sm">Conda</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Un gestionnaire d'environnements qui installe les outils bioinformatiques avec les bonnes versions.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">SQLite</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">La base de donnees (un simple fichier) qui stocke la liste des analyses et leur statut.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-sm">Polling</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Demander regulierement "c'est pret ?" au backend. Comme un enfant a l'arriere de la voiture : "On est arrives ?"</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">Pipeline</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Une chaine d'outils qui s'executent les uns apres les autres, comme une chaine de montage.</td>
+            </tr>
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">ARG</code></td>
+              <td class="px-6 py-3 text-sm text-gray-600">Antimicrobial Resistance Gene — gene de resistance aux antimicrobiens. C'est ce que le pipeline detecte.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 5 : Résumé en une phrase -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 text-white text-center shadow-lg">
+        <h2 class="text-2xl font-bold mb-4">En resume</h2>
+        <p class="text-lg max-w-3xl mx-auto leading-relaxed">
+          Vous cliquez sur un bouton <span class="font-bold">(frontend)</span>,
+          le navigateur envoie un message <span class="font-bold">(API)</span>,
+          Python lance les outils bioinformatiques <span class="font-bold">(backend + pipeline)</span>,
+          et les resultats s'affichent dans votre navigateur.
+          <br><br>
+          <span class="text-blue-200">C'est tout !</span>
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-800 text-gray-400 text-center py-6">
+    <p class="text-sm">
+      <a href="form_launch_analysis.html" class="text-blue-400 hover:text-blue-300 transition">&#8592; Retour a l'accueil</a>
+      &nbsp;&middot;&nbsp;
+      MEGAM ARG Detection &mdash; Pipeline de detection des genes de resistance aux antimicrobiens
+    </p>
+  </footer>
+
+</body>
+</html>

@@ -115,7 +115,7 @@ if (-not (Test-DockerRunning)) {
     }
 
     if (-not $dockerExe) {
-        Show-Error "Docker Desktop n'est pas installé.`nVeuillez réinstaller MEGAM ARG Detection."
+        Show-Error "Docker Desktop n'est pas installé.`n`nPour l'installer :`n1. Ouvrez votre navigateur et cherchez 'install docker desktop' sur Google`n2. Téléchargez Docker Desktop depuis docker.com`n3. Lancez l'installeur téléchargé et suivez les étapes`n4. Redémarrez si demandé, puis relancez MEGAM ARG Detection"
         exit 1
     }
 

@@ -4,7 +4,7 @@
 ; Cet installeur :
 ;   1. Affiche une page de prérequis (WSL2, Docker, espace disque)
 ;   2. Installe WSL2 si absent (via wsl --install)
-;   3. Télécharge et installe Docker Desktop si absent (via PowerShell)
+;   3. Guide l'utilisateur pour installer Docker Desktop manuellement
 ;   4. Copie les fichiers de l'application
 ;   5. Crée des raccourcis bureau + menu démarrer
 ;   6. Propose de lancer l'application
@@ -173,8 +173,8 @@ begin
   else
     LabelDocker.Caption :=
       '[MANQUANT]  Docker Desktop n''est pas installé' + #13#10 +
-      '     > Téléchargement et installation automatiques (~5 min)' + #13#10 +
-      '     > Téléchargement : environ 500 Mo';
+      '     > Vous devez l''installer manuellement avant de continuer' + #13#10 +
+      '     > Cliquez sur Suivant pour obtenir les instructions';
 
   // --- Espace disque ---
   if DiskGB >= 10 then Marker := '[OK]' else Marker := '[INSUFFISANT]';
@@ -202,32 +202,27 @@ begin
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Téléchargement + installation Docker Desktop via PowerShell
-// Utilise Invoke-WebRequest natif (pas de plugin externe)
+// Instructions pour installer Docker Desktop manuellement
+// L'installeur ne télécharge PAS Docker à la place de l'utilisateur
 // ─────────────────────────────────────────────────────────────────────────────
-function DoInstallDocker: Boolean;
-var
-  ExitCode: Integer;
-  PSCmd: String;
+procedure ShowDockerInstallInstructions;
 begin
-  // Script PowerShell inline :
-  //   1. Télécharge Docker Desktop Installer dans %TEMP%
-  //   2. Lance l'installation silencieuse
-  PSCmd := '-ExecutionPolicy Bypass -Command "' +
-    '$ErrorActionPreference = ''Stop''; ' +
-    '$installer = Join-Path $env:TEMP ''DockerDesktopInstaller.exe''; ' +
-    'Write-Host ''Telechargement de Docker Desktop...''; ' +
-    '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; ' +
-    'Invoke-WebRequest -Uri ''https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe'' -OutFile $installer -UseBasicParsing; ' +
-    'Write-Host ''Installation de Docker Desktop...''; ' +
-    'Start-Process -FilePath $installer -ArgumentList ''install --quiet --accept-license'' -Wait; ' +
-    'Remove-Item $installer -Force -ErrorAction SilentlyContinue; ' +
-    'Write-Host ''Installation terminee.''"';
-
-  Result := Exec('powershell.exe', PSCmd, '', SW_SHOW, ewWaitUntilTerminated, ExitCode);
-  Result := Result and (ExitCode = 0);
-  if Result then
-    RestartNeeded := True;
+  MsgBox(
+    'Docker Desktop doit être installé manuellement.' + #13#10 +
+    '' + #13#10 +
+    'Voici les étapes :' + #13#10 +
+    '' + #13#10 +
+    '1. Ouvrez votre navigateur (Chrome, Firefox, Edge...)' + #13#10 +
+    '2. Allez sur Google et tapez : install docker desktop windows' + #13#10 +
+    '3. Cliquez sur le premier lien (docker.com)' + #13#10 +
+    '4. Cliquez sur le bouton "Download Docker Desktop"' + #13#10 +
+    '5. Lancez le fichier téléchargé (Docker Desktop Installer.exe)' + #13#10 +
+    '6. Suivez l''assistant d''installation (acceptez les options par défaut)' + #13#10 +
+    '7. Redémarrez votre ordinateur si demandé' + #13#10 +
+    '8. Lancez Docker Desktop une première fois depuis le menu Démarrer' + #13#10 +
+    '' + #13#10 +
+    'Une fois Docker Desktop installé, relancez cet installeur.',
+    mbInformation, MB_OK);
 end;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -283,26 +278,12 @@ begin
     Exit;
   end;
 
-  // 3. Docker Desktop
+  // 3. Docker Desktop — installation manuelle requise
   if not DockerReady then
   begin
-    if MsgBox('Docker Desktop n''est pas installé. Le télécharger et l''installer maintenant ?'
-              + #13#10 + '(Téléchargement ~500 Mo, installation ~5 minutes)',
-              mbConfirmation, MB_YESNO) = IDNO then
-    begin
-      MsgBox('Docker Desktop est requis. L''installation ne peut pas continuer.',
-             mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-    if not DoInstallDocker then
-    begin
-      MsgBox('L''installation de Docker Desktop a échoué.'
-             + #13#10 + 'Téléchargez-le manuellement sur https://www.docker.com/products/docker-desktop/',
-             mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
+    ShowDockerInstallInstructions;
+    Result := False;
+    Exit;
   end;
 end;
 
