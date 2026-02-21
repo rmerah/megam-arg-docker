@@ -207,7 +207,7 @@ if (-not $imageExists) {
     $form.Refresh()
 
     # Lancer dans une fenetre cmd visible pour voir la progression du pull
-    $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" up -d'
+    $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" up -d --pull always'
     "[$(Get-Date)] Commande: cmd.exe $cmdArgs" | Out-File $LogFile -Append
     $proc = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -PassThru -Wait
     $exitCode = $proc.ExitCode
@@ -229,10 +229,10 @@ if (-not $imageExists) {
 } else {
     # Image deja presente, demarrage rapide
     "[$(Get-Date)] Image existante, demarrage rapide..." | Out-File $LogFile -Append
-    $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Demarrage de l'application... (~10 secondes)"
+    $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Verification des mises a jour et demarrage... (~30 secondes)"
 
     try {
-        $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" up -d'
+        $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" up -d --pull always'
         $proc = Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -PassThru -Wait
         if ($proc.ExitCode -ne 0) {
             throw "docker compose up failed (exit code: $($proc.ExitCode))"
