@@ -602,10 +602,13 @@ class OutputParser:
                 'alleles': {}
             }
 
-            # Si ST est '-' ou vide, pas de données valides
+            # Si ST est '-' ou vide, mettre à None mais conserver les données si le schema existe
             if mlst_data['sequence_type'] in ['-', '', None]:
-                logger.info("MLST: pas de ST détecté")
-                return None
+                mlst_data['sequence_type'] = None
+                if not mlst_data['scheme'] or mlst_data['scheme'] in ['-', '']:
+                    logger.info("MLST: ni schema ni ST détecté")
+                    return None
+                logger.info(f"MLST: schema '{mlst_data['scheme']}' identifié sans ST")
 
             # Les colonnes après ST sont les allèles
             # Format: Pas_cpn60(12) Pas_fusA(37) gltA(2) ou juste gene(num)

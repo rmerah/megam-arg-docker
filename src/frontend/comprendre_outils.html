@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEGAM ARG Detection - Comprendre mes outils</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .fade-in { animation: fadeIn 0.6s ease-in; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+  <!-- HEADER -->
+  <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+      </div>
+      <nav class="flex gap-1 items-center flex-wrap">
+        <a href="form_launch_analysis.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Nouvelle Analyse
+        </a>
+        <a href="jobs_list.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Historique
+        </a>
+        <a href="databases.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Bases de donnees
+        </a>
+        <a href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Dashboard
+        </a>
+        <a href="how_it_works.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Comment ca marche ?
+        </a>
+        <a href="comprendre_outils.html" class="bg-white text-blue-900 px-4 py-2 rounded font-medium hover:bg-blue-100 transition text-sm">
+          Comprendre mes outils
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- Titre principal -->
+    <div class="text-center mb-12 fade-in">
+      <h1 class="text-4xl font-bold text-gray-800 mb-3">Comprendre mes outils</h1>
+      <p class="text-lg text-gray-500 max-w-2xl mx-auto">
+        Chaque outil du pipeline explique : ce qu'il fait, pourquoi il est la, et comment lire ses resultats.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Controle Qualite -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+        Controle Qualite
+      </h2>
+      <div class="space-y-6">
+
+        <!-- FastQC -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">FastQC</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">FastQC analyse la qualite brute des reads de sequencage. Il evalue la distribution des scores de qualite par base, le contenu en GC, la presence d'adaptateurs, les sequences surrepresentees et les niveaux de duplication.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Il intervient en tout premier pour verifier que les donnees brutes sont exploitables avant tout traitement. C'est le diagnostic initial qui determine si un nettoyage sera necessaire.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Les modules passes en vert sont satisfaisants. Les avertissements orange meritent attention mais ne sont pas bloquants. Les echecs rouges (adaptateurs, qualite basse en fin de read) sont corriges par fastp a l'etape suivante.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- fastp -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">fastp</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">fastp effectue le trimming et le filtrage des reads : suppression des adaptateurs, elimination des reads de mauvaise qualite, correction des bases et filtrage par longueur minimale.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Il nettoie les donnees brutes pour que l'assemblage en aval soit de meilleure qualite. Des reads propres produisent des contigs plus longs et plus fiables.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Verifiez le pourcentage de reads conserves (idealement > 85%). Le rapport indique le nombre de reads filtres et la raison (qualite, longueur, adaptateurs). Un taux de filtrage eleve peut indiquer un probleme de sequencage.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- MultiQC -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">MultiQC</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">MultiQC agrege les rapports de tous les outils QC (FastQC, fastp, QUAST, etc.) en un seul rapport HTML interactif avec des graphiques comparatifs.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Il fournit une vue d'ensemble unifiee de toutes les metriques de qualite. Au lieu de consulter chaque rapport separement, vous avez tout en un coup d'oeil.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-blue-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Le rapport interactif permet de comparer les echantillons entre eux. Cherchez les outliers dans les graphiques : un echantillon tres different des autres merite une investigation.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Acquisition des donnees -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
+        Acquisition des donnees
+      </h2>
+      <div class="space-y-6">
+
+        <!-- sra-tools -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-cyan-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">sra-tools</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-cyan-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">sra-tools (fasterq-dump, prefetch) telecharge les donnees de sequencage depuis la base NCBI SRA. Il convertit les fichiers SRA en fichiers FASTQ utilisables par le pipeline.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-cyan-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">C'est le point d'entree quand vous analysez des donnees publiques via un numero d'accession SRA (ex: SRR1234567). Il recupere automatiquement les reads paired-end ou single-end.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-cyan-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Le telechargement produit des fichiers FASTQ (_1.fastq et _2.fastq pour du paired-end). Verifiez que les fichiers ne sont pas vides et que le nombre de reads correspond aux metadonnees SRA.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Assemblage -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-green-500"></span>
+        Assemblage
+      </h2>
+      <div class="space-y-6">
+
+        <!-- SPAdes -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">SPAdes</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-green-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">SPAdes est un assembleur de novo qui reconstruit le genome a partir des reads courts. Il utilise des graphes de Bruijn avec plusieurs valeurs de k-mer pour produire des contigs et scaffolds.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-green-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">L'assemblage est l'etape centrale : il transforme des millions de reads courts en sequences genomiques continues. Sans assemblage, impossible d'annoter les genes ou de detecter les genes de resistance sur des contigs complets.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-green-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Un bon assemblage a un N50 eleve (idealement > 50 kb pour une bacterie), peu de contigs (< 200) et une taille totale coherente avec le genome attendu. Verifiez aussi que le coverage moyen est suffisant (> 30x).</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- seqkit -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">seqkit</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-green-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">seqkit est un outil de manipulation de sequences FASTA/FASTQ. Il calcule des statistiques (nombre de sequences, longueur, N50) et filtre les contigs par taille minimale.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-green-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Apres l'assemblage, seqkit filtre les contigs trop courts (< 500 bp) qui sont souvent du bruit, et fournit des statistiques de base sur l'assemblage.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-green-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Les statistiques seqkit montrent le nombre total de contigs, la longueur totale, le N50 et la longueur du plus long contig. Comparez la taille totale avec la taille attendue du genome de votre organisme.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Evaluation assemblage -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-teal-500"></span>
+        Evaluation de l'assemblage
+      </h2>
+      <div class="space-y-6">
+
+        <!-- QUAST -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-teal-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">QUAST</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-teal-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">QUAST (Quality Assessment Tool for Genome Assemblies) evalue la qualite de l'assemblage en calculant des metriques detaillees : N50, L50, nombre de contigs, taille totale, plus long contig, contenu GC, et nombre de N par 100 kbp.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-teal-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">QUAST valide que l'assemblage est de qualite suffisante pour les analyses en aval. Un mauvais assemblage produirait des resultats de detection de resistance peu fiables.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-teal-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Un N50 > 50 kb est bon pour une bacterie. Le nombre de contigs < 200 est acceptable. La taille totale doit correspondre a la taille attendue du genome (+/- 10%). Un GC% aberrant peut indiquer une contamination.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Annotation -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+        Annotation
+      </h2>
+      <div class="space-y-6">
+
+        <!-- Prokka -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-amber-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">Prokka</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-amber-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">Prokka annote rapidement les genomes procaryotes : il predit les genes codants (CDS), les ARN ribosomiques (rRNA), les ARN de transfert (tRNA) et les elements regulateurs. Il attribue des noms de genes et des fonctions par homologie.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-amber-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">L'annotation transforme des sequences brutes en informations biologiques exploitables. Elle identifie chaque gene et sa fonction potentielle, ce qui est essentiel pour comprendre le contenu genetique de l'organisme.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-amber-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Le nombre de CDS doit etre coherent avec la taille du genome (environ 1 gene pour 1 kb). Les proteines hypothetiques sont normales (30-40% typiquement). Les fichiers GFF et GBK peuvent etre visualises dans des outils comme Artemis ou IGV.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Typage moleculaire -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+        Typage moleculaire
+      </h2>
+      <div class="space-y-6">
+
+        <!-- MLST -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">MLST</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-purple-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">MLST (Multi-Locus Sequence Typing) determine le Sequence Type (ST) d'un isolat en analysant les alleles de 7 genes de menage conserves. Chaque combinaison unique d'alleles definit un ST.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-purple-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Le typage MLST permet de situer l'isolat dans un contexte epidemiologique. Certains STs sont associes a des clones epidemiques connus (ex: ST131 chez E. coli, ST258 chez K. pneumoniae) ou a des profils de resistance specifiques.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-purple-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Le schema identifie correspond a l'espece detectee. Le ST est un numero unique. Si le ST est "Non detecte", cela signifie que la combinaison d'alleles ne correspond a aucun ST connu dans la base PubMLST, mais le profil allelique reste informatif.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Detection ARG -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+        Detection des genes de resistance (ARG)
+      </h2>
+      <div class="space-y-6">
+
+        <!-- AMRFinderPlus -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">AMRFinderPlus</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">AMRFinderPlus (NCBI) identifie les genes de resistance aux antimicrobiens, les genes de virulence et les genes de tolerance au stress. Il utilise une base de donnees curee par le NCBI avec des modeles HMM et BLAST.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">C'est l'outil de reference du NCBI pour la detection ARG. Sa base est regulierement mise a jour et inclut la nomenclature standardisee. Il detecte aussi les mutations ponctuelles de resistance chez certaines especes.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Chaque gene detecte indique la classe d'antibiotique concernee et le pourcentage d'identite/couverture. Une identite > 90% avec une couverture > 80% est un resultat fiable. Les annotations "POINT" designent des mutations ponctuelles.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ResFinder -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">ResFinder</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">ResFinder (Center for Genomic Epidemiology) detecte les genes de resistance acquise aux antimicrobiens par alignement BLAST contre sa propre base de donnees curee. Il couvre les principales classes d'antibiotiques.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">ResFinder complete AMRFinderPlus avec une base de donnees independante. Le croisement de deux sources ameliore la sensibilite et la specificite de la detection. Les genes trouves par les deux outils sont les plus fiables.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Les resultats montrent le gene, le phenotype predit (resistance a quel antibiotique), l'identite et la couverture. Les seuils par defaut sont 90% identite et 60% couverture. Les genes avec une couverture partielle peuvent etre des fragments.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD/RGI -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">CARD / RGI</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">RGI (Resistance Gene Identifier) utilise la base CARD (Comprehensive Antibiotic Resistance Database) avec des modeles de detection par homologie proteique, variants SNP et modeles de sur-expression. C'est l'outil le plus complet en termes de mecanismes de resistance.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">CARD/RGI apporte une troisieme perspective independante et classifie les mecanismes de resistance (efflux, modification de cible, inactivation enzymatique). Cette categorisation aide a comprendre comment la resistance fonctionne.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-red-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Les resultats "Perfect" indiquent une correspondance exacte avec la base CARD. "Strict" indique une detection fiable avec de legeres variations. "Loose" sont des hits moins fiables a interpreter avec prudence. L'ontologie ARO fournit un identifiant unique pour chaque determinant.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Virulence et plasmides -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+        Virulence et plasmides
+      </h2>
+      <div class="space-y-6">
+
+        <!-- VFDB -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">VFDB</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-orange-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">VFDB (Virulence Factors Database) identifie les facteurs de virulence bacteriens : adhesines, toxines, systemes de secretion, capsules, siderophores et autres determinants de pathogenicite.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-orange-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">La detection de virulence complete l'analyse de resistance. Un isolat resistant ET virulent represente une menace plus importante. Le profil de virulence aide a evaluer le potentiel pathogene.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-orange-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Les facteurs de virulence sont classes par categorie (adhesion, toxine, etc.). Le nombre de facteurs detectes varie selon l'espece. Comparez avec les profils de virulence typiques de l'espece pour identifier des acquisitions inhabituelles.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- PlasmidFinder -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">PlasmidFinder</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-orange-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">PlasmidFinder identifie les replicons plasmidiques dans les assemblages. Il detecte les groupes d'incompatibilite (IncF, IncI, IncN, etc.) qui classifient les plasmides selon leur mecanisme de replication.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-orange-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Les plasmides sont les principaux vecteurs de dissemination des genes de resistance. Identifier les plasmides presents aide a evaluer le risque de transfert horizontal des genes de resistance a d'autres bacteries.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-orange-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Chaque replicon detecte indique un type de plasmide. Certains groupes d'incompatibilite sont connus pour porter des genes de resistance specifiques (ex: IncF avec blaCTX-M). L'absence de replicon ne signifie pas l'absence de plasmide (certains ne sont pas dans la base).</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION : Mutations -->
+    <!-- ============================================================ -->
+    <section class="mb-12 fade-in">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+        Detection de mutations
+      </h2>
+      <div class="space-y-6">
+
+        <!-- PointFinder -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">PointFinder</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-indigo-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">PointFinder detecte les mutations ponctuelles (SNPs) connues pour conferer une resistance aux antibiotiques. Il cible les genes chromosomiques comme gyrA, parC, rpoB, etc., ou des mutations specifiques modifient la cible de l'antibiotique.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-indigo-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Contrairement aux genes de resistance acquis, les mutations ponctuelles sont sur le chromosome. Elles sont particulierement importantes pour les fluoroquinolones, la rifampicine et la colistine, ou la resistance est souvent chromosomique.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-indigo-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Chaque mutation est decrite par le gene, la position et le changement d'acide amine (ex: gyrA S83L). Les mutations "connues" dans la base sont les plus fiables. Les mutations "inconnues" detectees meritent une investigation supplementaire.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Snippy -->
+        <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">Snippy</h3>
+          <div class="space-y-3">
+            <div>
+              <h4 class="font-semibold text-indigo-700 mb-1">Ce que fait cet outil</h4>
+              <p class="text-gray-600">Snippy detecte les variants (SNPs et indels) en alignant les reads sur un genome de reference. Il produit un fichier VCF annote avec l'impact de chaque variant sur les genes.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-indigo-700 mb-1">Son role dans le pipeline</h4>
+              <p class="text-gray-600">Snippy fournit une analyse complete des variants au-dela des mutations de resistance connues. Il permet de detecter des mutations nouvelles ou rares qui pourraient affecter la sensibilite aux antibiotiques.</p>
+            </div>
+            <div>
+              <h4 class="font-semibold text-indigo-700 mb-1">Comment interpreter les resultats</h4>
+              <p class="text-gray-600">Les variants sont classes par impact : HIGH (frameshift, stop gained), MODERATE (missense), LOW (synonyme). Concentrez-vous sur les variants HIGH et MODERATE dans les genes connus de resistance. Le nombre total de SNPs donne une mesure de la distance genetique avec la reference.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Resume -->
+    <section class="mb-12 fade-in">
+      <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 text-white text-center shadow-lg">
+        <h2 class="text-2xl font-bold mb-4">En resume</h2>
+        <p class="text-lg max-w-3xl mx-auto leading-relaxed">
+          Le pipeline utilise <span class="font-bold">15 outils complementaires</span> qui couvrent toute la chaine :
+          de la qualite des reads bruts jusqu'a la detection des genes de resistance, mutations, virulence et plasmides.
+          <br><br>
+          <span class="text-blue-200">Chaque outil apporte un angle different. C'est leur combinaison qui donne des resultats fiables.</span>
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-800 text-gray-400 text-center py-6">
+    <p class="text-sm">
+      <a href="form_launch_analysis.html" class="text-blue-400 hover:text-blue-300 transition">&#8592; Retour a l'accueil</a>
+      &nbsp;&middot;&nbsp;
+      MEGAM ARG Detection &mdash; Pipeline de detection des genes de resistance aux antimicrobiens
+    </p>
+  </footer>
+
+</body>
+</html>
