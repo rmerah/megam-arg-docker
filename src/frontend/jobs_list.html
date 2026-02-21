@@ -300,11 +300,17 @@
     }
 
     function calculateDuration(start, end) {
-      const diffMs = new Date(end) - new Date(start);
-      const diffSec = Math.floor(diffMs / 1000);
-      const min = Math.floor(diffSec / 60);
-      const sec = diffSec % 60;
-      return `${min}m ${sec}s`;
+      if (!start || !end) return '-';
+      // Normaliser les dates (SQLite peut retourner "2024-01-15 10:30:00" au lieu de ISO)
+      const startDate = new Date(String(start).replace(' ', 'T'));
+      const endDate = new Date(String(end).replace(' ', 'T'));
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return '-';
+      const diffSec = Math.max(0, Math.floor((endDate - startDate) / 1000));
+      const h = Math.floor(diffSec / 3600);
+      const m = Math.floor((diffSec % 3600) / 60);
+      const s = diffSec % 60;
+      if (h > 0) return `${h}h ${m}m ${s}s`;
+      return `${m}m ${s}s`;
     }
 
     // Modal de suppression

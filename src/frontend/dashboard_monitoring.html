@@ -299,7 +299,76 @@
   <script>
     let currentJobId = null;
     let pollingInterval = null;
+    let durationInterval = null;
+    let currentStartedAt = null;
+    let currentCompletedAt = null;
     let logs = [];
+
+    /**
+     * Parse une date provenant de l'API de maniere fiable.
+     * SQLite peut retourner "2024-01-15 10:30:00" (espace) au lieu du format ISO "2024-01-15T10:30:00".
+     * Certains navigateurs interpretent le format avec espace comme UTC au lieu de local.
+     */
+    function parseApiDate(dateStr) {
+      if (!dateStr) return null;
+      // Remplacer l'espace par 'T' pour garantir un parsing ISO coherent
+      const normalized = String(dateStr).replace(' ', 'T');
+      const d = new Date(normalized);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    /**
+     * Formate une duree en secondes en texte lisible (ex: "1h 23m 45s")
+     */
+    function formatDurationSec(totalSec) {
+      if (totalSec < 0) totalSec = 0;
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return `${h}h ${m}m ${s}s`;
+      return `${m}m ${s}s`;
+    }
+
+    /**
+     * Met a jour l'affichage de la duree en temps reel
+     */
+    function updateDurationDisplay() {
+      if (!currentStartedAt) {
+        document.getElementById('duration').textContent = '-';
+        return;
+      }
+      const start = parseApiDate(currentStartedAt);
+      if (!start) {
+        document.getElementById('duration').textContent = '-';
+        return;
+      }
+      const end = currentCompletedAt ? parseApiDate(currentCompletedAt) : new Date();
+      if (!end) {
+        document.getElementById('duration').textContent = '-';
+        return;
+      }
+      const diffSec = Math.floor((end - start) / 1000);
+      document.getElementById('duration').textContent = formatDurationSec(diffSec);
+    }
+
+    /**
+     * Demarre le chronometre en temps reel (1 mise a jour par seconde)
+     */
+    function startDurationTimer() {
+      stopDurationTimer();
+      updateDurationDisplay();
+      durationInterval = setInterval(updateDurationDisplay, 1000);
+    }
+
+    /**
+     * Arrete le chronometre
+     */
+    function stopDurationTimer() {
+      if (durationInterval) {
+        clearInterval(durationInterval);
+        durationInterval = null;
+      }
+    }
 
     // ===== API FUNCTIONS =====
     async function apiCall(endpoint, options = {}) {
@@ -371,11 +440,14 @@
         return;
       }
 
-      // Arrêter polling précédent
+      // Arrêter polling et chrono précédents
       if (pollingInterval) {
         clearInterval(pollingInterval);
         pollingInterval = null;
       }
+      stopDurationTimer();
+      currentStartedAt = null;
+      currentCompletedAt = null;
 
       currentJobId = jobId;
       logs = [];
@@ -438,14 +510,21 @@
         progressBar.className = 'h-full bg-blue-600 transition-all duration-500';
       }
 
-      // Durée
+      // Durée - stocker les timestamps et mettre a jour le chrono
+      currentStartedAt = status.started_at;
+      currentCompletedAt = status.completed_at;
       if (status.started_at) {
-        const start = new Date(status.started_at);
-        const end = status.completed_at ? new Date(status.completed_at) : new Date();
-        const diffSec = Math.floor((end - start) / 1000);
-        const min = Math.floor(diffSec / 60);
-        const sec = diffSec % 60;
-        document.getElementById('duration').textContent = `${min}m ${sec}s`;
+        updateDurationDisplay();
+        // Pour les jobs en cours, le chrono tourne en temps reel
+        if (status.status === 'RUNNING' && !durationInterval) {
+          startDurationTimer();
+        } else if (status.status !== 'RUNNING') {
+          stopDurationTimer();
+          updateDurationDisplay(); // afficher la duree finale
+        }
+      } else {
+        stopDurationTimer();
+        document.getElementById('duration').textContent = '-';
       }
 
       // Logs preview
@@ -547,10 +626,12 @@
           const status = await apiCall(`/api/status/${currentJobId}`);
           updateStatusUI(status);
 
-          // Si terminé, charger résultats et arrêter polling
+          // Si terminé, charger résultats et arrêter polling + chrono
           if (status.status === 'COMPLETED') {
             clearInterval(pollingInterval);
             pollingInterval = null;
+            stopDurationTimer();
+            updateDurationDisplay();
 
             const results = await apiCall(`/api/results/${currentJobId}`);
             updateResultsUI(results);
@@ -559,6 +640,8 @@
           } else if (status.status === 'FAILED') {
             clearInterval(pollingInterval);
             pollingInterval = null;
+            stopDurationTimer();
+            updateDurationDisplay();
             addLog('ERROR', `❌ Analyse échouée: ${status.error_message || 'Erreur inconnue'}`);
           }
 
