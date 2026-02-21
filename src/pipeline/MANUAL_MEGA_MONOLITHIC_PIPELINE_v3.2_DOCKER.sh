@@ -592,7 +592,7 @@ fetch_species_from_ncbi() {
 
     # Fichiers locaux : pas d'appel NCBI possible
     if [[ "$input_type" == "local" ]] || [[ "$input_type" == "local_fasta" ]]; then
-        log_warn "Entrée locale: impossible de déterminer l'espèce via NCBI"
+        log_warn "Entree locale: impossible de determiner l'espece via NCBI"
         DETECTED_SPECIES=""
         PROKKA_GENUS=""
         PROKKA_SPECIES=""
@@ -602,46 +602,163 @@ fetch_species_from_ncbi() {
     local entrez_base="https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
     local organism=""
     local taxid=""
+    local max_retries=2
+
+    # Helper : curl avec timeout et retry
+    _ncbi_curl() {
+        local url="$1"
+        local attempt=0
+        local result=""
+        while [[ $attempt -lt $max_retries ]]; do
+            result=$(curl -s --connect-timeout 5 --max-time 10 "$url" 2>/dev/null)
+            if [[ -n "$result" ]] && [[ "$result" != *"<ERROR>"* ]]; then
+                echo "$result"
+                return 0
+            fi
+            ((attempt++))
+            [[ $attempt -lt $max_retries ]] && sleep 2
+        done
+        return 1
+    }
+
+    # Helper : extraire organisme et taxid depuis esummary JSON via python3
+    _extract_organism() {
+        python3 -c "
+import sys, json, re
+try:
+    data = json.load(sys.stdin)
+except (json.JSONDecodeError, ValueError):
+    print('|')
+    sys.exit(0)
+result = data.get('result', {})
+uids = result.get('uids', [])
+uid = str(uids[0]) if uids else ''
+if not uid:
+    keys = [k for k in result if k != 'uids']
+    uid = keys[0] if keys else ''
+if not uid:
+    print('|')
+    sys.exit(0)
+doc = result.get(uid, {})
+org = doc.get('organism', '') or doc.get('speciesname', '')
+tid = str(doc.get('taxid', 0))
+# Pour SRA, extraire depuis expxml
+if not org:
+    expxml = doc.get('expxml', '')
+    m = re.search(r'ScientificName=\"([^\"]+)\"', expxml)
+    if m: org = m.group(1)
+    m2 = re.search(r'taxid=\"(\d+)\"', expxml)
+    if m2: tid = m2.group(1)
+# Nettoyer parentheses (clade)
+org = re.sub(r'\s*\([^)]*\)\s*$', '', org).strip()
+print(f'{org}|{tid}')
+" 2>/dev/null || echo "|"
+    }
+
+    # Helper : taxid -> organism name via taxonomy
+    _fetch_organism_by_taxid() {
+        local tid="$1"
+        if [[ -z "$tid" ]] || [[ "$tid" == "0" ]]; then return 1; fi
+        log_info "Fallback taxonomy (taxid=$tid)..."
+        local tax_result
+        tax_result=$(_ncbi_curl "${entrez_base}/esummary.fcgi?db=taxonomy&id=${tid}&retmode=json")
+        if [[ -n "$tax_result" ]]; then
+            echo "$tax_result" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    doc = data.get('result', {})
+    uids = doc.get('uids', [])
+    uid = str(uids[0]) if uids else ''
+    if uid:
+        print(doc.get(uid, {}).get('scientificname', ''))
+    else:
+        print('')
+except Exception:
+    print('')
+" 2>/dev/null
+        fi
+    }
+
+    # Helper : extraire UID depuis esearch JSON
+    _extract_uid() {
+        python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    ids = d.get('esearchresult', {}).get('idlist', [])
+    print(ids[0] if ids else '')
+except Exception:
+    print('')
+" 2>/dev/null || echo ""
+    }
 
     case "$input_type" in
         sra)
             # SRA (SRR/ERR/DRR) : esearch -> esummary
-            local search_result=$(curl -s "${entrez_base}/esearch.fcgi?db=sra&term=${sample_id}&retmode=json" 2>/dev/null)
-            local uid=$(echo "$search_result" | grep -o '"IdList":\["[0-9]*"' | grep -o '[0-9]*' | head -1)
+            local search_result
+            search_result=$(_ncbi_curl "${entrez_base}/esearch.fcgi?db=sra&term=${sample_id}&retmode=json")
+            log_info "  [DEBUG] esearch result length: ${#search_result}"
+            local uid
+            uid=$(echo "$search_result" | _extract_uid)
+            log_info "  [DEBUG] extracted UID: [$uid]"
             if [[ -n "$uid" ]]; then
-                local summary=$(curl -s "${entrez_base}/esummary.fcgi?db=sra&id=${uid}&retmode=json" 2>/dev/null)
-                organism=$(echo "$summary" | grep -o 'ScientificName="[^"]*"' | head -1 | sed 's/ScientificName="//;s/"//')
-                taxid=$(echo "$summary" | grep -o 'taxid="[0-9]*"' | head -1 | sed 's/taxid="//;s/"//')
+                local summary
+                summary=$(_ncbi_curl "${entrez_base}/esummary.fcgi?db=sra&id=${uid}&retmode=json")
+                log_info "  [DEBUG] esummary result length: ${#summary}"
+                local parsed
+                parsed=$(echo "$summary" | _extract_organism)
+                log_info "  [DEBUG] parsed organism|taxid: [$parsed]"
+                organism=$(echo "$parsed" | cut -d'|' -f1)
+                taxid=$(echo "$parsed" | cut -d'|' -f2)
+            else
+                log_warn "  [DEBUG] esearch returned no UID - curl response: ${search_result:0:200}"
             fi
             ;;
         genbank)
-            # GenBank (CP/NC_/NZ_) : esummary
-            local summary=$(curl -s "${entrez_base}/esummary.fcgi?db=nuccore&id=${sample_id}&retmode=json" 2>/dev/null)
-            local uid=$(echo "$summary" | grep -o '"uids":\["[0-9]*"' | grep -o '[0-9]*' | head -1)
-            if [[ -n "$uid" ]]; then
-                organism=$(echo "$summary" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-doc = data.get('result', {}).get('$uid', {})
-print(doc.get('organism', ''))
-" 2>/dev/null || echo "")
+            # GenBank (CP/NC_/NZ_) : esummary direct par accession
+            local summary
+            summary=$(_ncbi_curl "${entrez_base}/esummary.fcgi?db=nuccore&id=${sample_id}&retmode=json")
+            local parsed
+            parsed=$(echo "$summary" | _extract_organism)
+            organism=$(echo "$parsed" | cut -d'|' -f1)
+            taxid=$(echo "$parsed" | cut -d'|' -f2)
+            # Fallback : esearch d'abord si esummary direct a echoue
+            if [[ -z "$organism" ]]; then
+                log_info "Fallback esearch pour GenBank ${sample_id}..."
+                local search_result
+                search_result=$(_ncbi_curl "${entrez_base}/esearch.fcgi?db=nuccore&term=${sample_id}&retmode=json")
+                local uid
+                uid=$(echo "$search_result" | _extract_uid)
+                if [[ -n "$uid" ]]; then
+                    summary=$(_ncbi_curl "${entrez_base}/esummary.fcgi?db=nuccore&id=${uid}&retmode=json")
+                    parsed=$(echo "$summary" | _extract_organism)
+                    organism=$(echo "$parsed" | cut -d'|' -f1)
+                    taxid=$(echo "$parsed" | cut -d'|' -f2)
+                fi
             fi
             ;;
         assembly)
             # Assembly (GCF_/GCA_) : esearch -> esummary
-            local search_result=$(curl -s "${entrez_base}/esearch.fcgi?db=assembly&term=${sample_id}&retmode=json" 2>/dev/null)
-            local uid=$(echo "$search_result" | grep -o '"IdList":\["[0-9]*"' | grep -o '[0-9]*' | head -1)
+            local search_result
+            search_result=$(_ncbi_curl "${entrez_base}/esearch.fcgi?db=assembly&term=${sample_id}&retmode=json")
+            local uid
+            uid=$(echo "$search_result" | _extract_uid)
             if [[ -n "$uid" ]]; then
-                local summary=$(curl -s "${entrez_base}/esummary.fcgi?db=assembly&id=${uid}&retmode=json" 2>/dev/null)
-                organism=$(echo "$summary" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-doc = data.get('result', {}).get('$uid', {})
-print(doc.get('organism', '').split('(')[0].strip())
-" 2>/dev/null || echo "")
+                local summary
+                summary=$(_ncbi_curl "${entrez_base}/esummary.fcgi?db=assembly&id=${uid}&retmode=json")
+                local parsed
+                parsed=$(echo "$summary" | _extract_organism)
+                organism=$(echo "$parsed" | cut -d'|' -f1)
+                taxid=$(echo "$parsed" | cut -d'|' -f2)
             fi
             ;;
     esac
+
+    # Fallback : si on a un taxid mais pas d'organisme, interroger taxonomy
+    if [[ -z "$organism" ]] && [[ -n "$taxid" ]] && [[ "$taxid" != "0" ]]; then
+        organism=$(_fetch_organism_by_taxid "$taxid")
+    fi
 
     if [[ -n "$organism" ]]; then
         DETECTED_SPECIES="$organism"
@@ -653,13 +770,13 @@ print(doc.get('organism', '').split('(')[0].strip())
         # Exporter pour les scripts Python
         export NCBI_DETECTED_SPECIES="$DETECTED_SPECIES"
 
-        log_success "Espèce détectée via NCBI: $DETECTED_SPECIES"
-        log_info "  → Genre: $PROKKA_GENUS"
-        log_info "  → Espèce: $PROKKA_SPECIES"
+        log_success "Espece detectee via NCBI: $DETECTED_SPECIES"
+        log_info "  -> Genre: $PROKKA_GENUS"
+        log_info "  -> Espece: $PROKKA_SPECIES"
         return 0
     fi
 
-    log_warn "Impossible de déterminer l'espèce via NCBI pour $sample_id"
+    log_warn "Impossible de determiner l'espece via NCBI pour $sample_id"
     DETECTED_SPECIES=""
     PROKKA_GENUS=""
     PROKKA_SPECIES=""
