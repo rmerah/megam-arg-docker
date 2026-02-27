@@ -59,50 +59,137 @@
     <!-- Formulaire -->
     <form id="analysis-form" class="bg-white rounded-lg shadow-lg p-8">
 
-      <!-- Sample ID -->
+      <!-- Onglets de mode d'entrée -->
       <div class="mb-6">
-        <label class="block text-sm font-semibold text-gray-700 mb-2">
-          Identifiant de l'échantillon *
-        </label>
-        <div class="flex gap-2">
-          <input type="text" id="sample_id" required
-                 class="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+        <div class="flex border-b border-gray-200 mb-4">
+          <button type="button" onclick="switchTab('tab-accession')"
+                  id="btn-tab-accession"
+                  class="px-4 py-2 text-sm font-semibold border-b-2 border-blue-600 text-blue-600 -mb-px">
+            🌐 Accession en ligne
+          </button>
+          <button type="button" onclick="switchTab('tab-fasta')"
+                  id="btn-tab-fasta"
+                  class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+            🧬 FASTA assemblé
+          </button>
+          <button type="button" onclick="switchTab('tab-fastq')"
+                  id="btn-tab-fastq"
+                  class="px-4 py-2 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+            🔬 Reads FASTQ (Illumina)
+          </button>
+        </div>
+
+        <!-- TAB : Accession en ligne -->
+        <div id="tab-accession">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Identifiant NCBI *
+          </label>
+          <input type="text" id="sample_id"
+                 class="w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                  placeholder="Ex: SRR28083254, CP133916.1, GCA_025717695.1">
-          <label class="flex items-center gap-2 bg-gray-100 border border-gray-300 rounded-lg px-4 py-3 cursor-pointer hover:bg-gray-200 transition whitespace-nowrap">
-            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <p class="text-sm text-gray-500 mt-2">
+            SRA (SRR*/ERR*/DRR*) · GenBank (CP*/NC*/NZ_*) · Assembly (GCA_*/GCF_*)
+          </p>
+          <!-- Type détecté -->
+          <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200" id="detected-type-box" style="display: none;">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl" id="type-icon">📦</span>
+              <div>
+                <p class="text-sm text-blue-600 font-semibold">Type détecté automatiquement</p>
+                <p class="text-lg font-bold text-blue-900" id="detected-type">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB : FASTA assemblé -->
+        <div id="tab-fasta" class="hidden">
+          <label class="block text-sm font-semibold text-gray-700 mb-2">
+            Fichier FASTA / FNA / FA (génome pré-assemblé) *
+          </label>
+          <label class="flex items-center gap-3 w-full border-2 border-dashed border-gray-300 rounded-lg px-5 py-4 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
             </svg>
-            <span class="text-sm font-semibold text-gray-700">Upload</span>
+            <div>
+              <p class="font-semibold text-gray-700">Choisir un fichier FASTA</p>
+              <p class="text-xs text-gray-500">.fasta .fna .fa (ou .gz)</p>
+            </div>
             <input type="file" id="file_upload" accept=".fasta,.fa,.fna,.fasta.gz,.fa.gz,.fna.gz" class="hidden">
           </label>
-        </div>
-        <p class="text-sm text-gray-500 mt-2">
-          Formats supportés: SRA (SRR*), GenBank (CP*, NC*), Assembly (GCA*), ou <strong>uploadez un fichier FASTA/FNA assemblé</strong>
-        </p>
-        <p class="text-xs text-blue-600 mt-1">
-          💡 Pour des reads Illumina bruts : utilisez l'accession SRA (ex: SRR28083254). Les FASTQ ne peuvent pas être uploadés directement.
-        </p>
-        <!-- Upload progress -->
-        <div id="upload-status" class="hidden mt-2 p-3 rounded-lg border">
-          <div class="flex items-center gap-2">
-            <span id="upload-icon" class="text-lg">⏳</span>
-            <span id="upload-text" class="text-sm text-gray-600">Upload en cours...</span>
+          <div id="upload-status" class="hidden mt-2 p-3 rounded-lg border">
+            <div class="flex items-center gap-2">
+              <span id="upload-icon" class="text-lg">⏳</span>
+              <span id="upload-text" class="text-sm text-gray-600">Upload en cours...</span>
+            </div>
+            <div id="upload-progress-bar" class="mt-2 w-full bg-gray-200 rounded-full h-2 hidden">
+              <div id="upload-progress" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+            </div>
           </div>
-          <div id="upload-progress-bar" class="mt-2 w-full bg-gray-200 rounded-full h-2 hidden">
-            <div id="upload-progress" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
-          </div>
+          <p class="text-xs text-gray-500 mt-2">Annotation → ARG directement (pas de QC ni assemblage)</p>
         </div>
-      </div>
 
-      <!-- Type détecté -->
-      <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200" id="detected-type-box" style="display: none;">
-        <div class="flex items-center gap-3">
-          <span class="text-2xl" id="type-icon">📦</span>
+        <!-- TAB : Reads FASTQ Illumina -->
+        <div id="tab-fastq" class="hidden space-y-4">
+
+          <!-- Paired-end R1 + R2 -->
+          <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+            <p class="font-semibold text-green-800 mb-3">📗 Reads pairés (R1 + R2) — recommandé</p>
+            <div class="space-y-3">
+              <!-- R1 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Read 1 (forward) *</label>
+                <label class="flex items-center gap-3 border border-gray-300 rounded-lg px-4 py-3 cursor-pointer hover:bg-green-100 transition bg-white">
+                  <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                  </svg>
+                  <span id="r1-label" class="text-sm text-gray-500 flex-1">Choisir fichier R1 (.fastq / .fq / .gz)</span>
+                  <input type="file" id="r1_upload" accept=".fastq,.fq,.fastq.gz,.fq.gz" class="hidden">
+                </label>
+                <div id="r1-status" class="hidden mt-1 text-sm text-green-700 font-medium"></div>
+              </div>
+              <!-- R2 -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Read 2 (reverse) *</label>
+                <label class="flex items-center gap-3 border border-gray-300 rounded-lg px-4 py-3 cursor-pointer hover:bg-green-100 transition bg-white">
+                  <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                  </svg>
+                  <span id="r2-label" class="text-sm text-gray-500 flex-1">Choisir fichier R2 (.fastq / .fq / .gz)</span>
+                  <input type="file" id="r2_upload" accept=".fastq,.fq,.fastq.gz,.fq.gz" class="hidden">
+                </label>
+                <div id="r2-status" class="hidden mt-1 text-sm text-green-700 font-medium"></div>
+              </div>
+            </div>
+            <p class="text-xs text-green-700 mt-2">Pipeline complet : QC (fastp) → Assemblage (SPAdes) → Annotation → ARG</p>
+          </div>
+
+          <!-- Single-end -->
+          <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <p class="font-semibold text-yellow-800 mb-3">📙 Read single-end (un seul fichier)</p>
+            <label class="flex items-center gap-3 border border-gray-300 rounded-lg px-4 py-3 cursor-pointer hover:bg-yellow-100 transition bg-white">
+              <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+              <span id="se-label" class="text-sm text-gray-500 flex-1">Choisir fichier FASTQ (.fastq / .fq / .gz)</span>
+              <input type="file" id="se_upload" accept=".fastq,.fq,.fastq.gz,.fq.gz" class="hidden">
+            </label>
+            <div id="se-status" class="hidden mt-1 text-sm text-yellow-700 font-medium"></div>
+            <p class="text-xs text-yellow-700 mt-2">Pipeline complet : QC (fastp) → Assemblage (SPAdes -s) → Annotation → ARG</p>
+          </div>
+
+          <!-- Nom d'échantillon pour FASTQ -->
           <div>
-            <p class="text-sm text-blue-600 font-semibold">Type détecté automatiquement</p>
-            <p class="text-lg font-bold text-blue-900" id="detected-type">-</p>
+            <label class="block text-sm font-semibold text-gray-700 mb-1">
+              Nom de l'échantillon (optionnel)
+            </label>
+            <input type="text" id="fastq-sample-name"
+                   class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 transition"
+                   placeholder="Déduit automatiquement du nom de fichier">
+            <p class="text-xs text-gray-500 mt-1">Utilisé pour nommer le dossier de résultats</p>
           </div>
         </div>
+
       </div>
 
       <!-- Options avancées -->
@@ -158,7 +245,7 @@
       <h3 class="text-lg font-bold text-gray-800 mb-4">📋 Types d'entrée supportés</h3>
       <div class="grid md:grid-cols-2 gap-4">
         <div class="p-4 bg-green-50 rounded-lg border border-green-200">
-          <p class="font-bold text-green-800">🧪 SRA (Reads bruts)</p>
+          <p class="font-bold text-green-800">🧪 SRA (Reads bruts NCBI)</p>
           <p class="text-sm text-green-700">Ex: SRR28083254, SRR19561143</p>
           <p class="text-xs text-green-600 mt-1">Pipeline complet: QC → Assemblage → Annotation → ARG</p>
         </div>
@@ -173,10 +260,14 @@
           <p class="text-xs text-purple-600 mt-1">Annotation → ARG (pas d'assemblage)</p>
         </div>
         <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
-          <p class="font-bold text-orange-800">📁 Fichier local (FASTA assemblé)</p>
+          <p class="font-bold text-orange-800">📁 FASTA local (génome assemblé)</p>
           <p class="text-sm text-orange-700">Upload un fichier .fasta / .fna / .fa</p>
-          <p class="text-xs text-orange-600 mt-1">Annotation → ARG (génome pré-assemblé uniquement)</p>
-          <p class="text-xs text-orange-500 mt-1">⚠️ Les fichiers FASTQ (reads) ne sont pas supportés ici → utilisez SRA</p>
+          <p class="text-xs text-orange-600 mt-1">Annotation → ARG (génome pré-assemblé)</p>
+        </div>
+        <div class="p-4 bg-teal-50 rounded-lg border border-teal-200 md:col-span-2">
+          <p class="font-bold text-teal-800">🔬 FASTQ local (reads Illumina de votre séquenceur)</p>
+          <p class="text-sm text-teal-700">Upload R1 + R2 (paired-end) ou un seul fichier (single-end)</p>
+          <p class="text-xs text-teal-600 mt-1">Pipeline complet : QC (fastp) → Assemblage (SPAdes) → Annotation → ARG</p>
         </div>
       </div>
     </div>
@@ -220,57 +311,53 @@
 
   <script src="api-client.js"></script>
   <script>
-    // Détection automatique du type
+    // État global des uploads FASTQ
+    let uploadedR1Path = null;
+    let uploadedR2Path = null;
+    let uploadedSePath = null;
+    let activeTab = 'tab-accession';
+
+    // ===== GESTION DES ONGLETS =====
+    function switchTab(tabId) {
+      ['tab-accession', 'tab-fasta', 'tab-fastq'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+        document.getElementById('btn-' + id).classList.remove('border-blue-600', 'text-blue-600');
+        document.getElementById('btn-' + id).classList.add('border-transparent', 'text-gray-500');
+      });
+      document.getElementById(tabId).classList.remove('hidden');
+      document.getElementById('btn-' + tabId).classList.add('border-blue-600', 'text-blue-600');
+      document.getElementById('btn-' + tabId).classList.remove('border-transparent', 'text-gray-500');
+      activeTab = tabId;
+      // L'onglet accession ne requiert pas de champ requis sur FASTQ
+      document.getElementById('sample_id').required = (tabId === 'tab-accession');
+    }
+
+    // ===== DÉTECTION AUTOMATIQUE DU TYPE (onglet accession) =====
     document.getElementById('sample_id').addEventListener('input', function(e) {
       const value = e.target.value.trim();
       const box = document.getElementById('detected-type-box');
       const typeEl = document.getElementById('detected-type');
       const iconEl = document.getElementById('type-icon');
 
-      if (!value) {
-        box.style.display = 'none';
-        return;
-      }
+      if (!value) { box.style.display = 'none'; return; }
 
-      let type = '';
-      let icon = '';
-
+      let type = '', icon = '';
       if (/^SRR\d+$/i.test(value) || /^ERR\d+$/i.test(value) || /^DRR\d+$/i.test(value)) {
-        type = 'SRA (Reads bruts)';
-        icon = '🧪';
-      } else if (/^(CP|NC|NZ_)\d+/i.test(value)) {
-        type = 'GenBank (Génome complet)';
-        icon = '🧬';
+        type = 'SRA (Reads bruts NCBI)'; icon = '🧪';
+      } else if (/^(CP|NC_|NZ_)\d+/i.test(value)) {
+        type = 'GenBank (Génome complet)'; icon = '🧬';
       } else if (/^GC[AF]_\d+/i.test(value)) {
-        type = 'Assembly (Assemblage NCBI)';
-        icon = '📦';
-      } else if (value.includes('/') || value.endsWith('.fasta') || value.endsWith('.fa') || value.endsWith('.fna')) {
-        type = 'Fichier local (FASTA assemblé)';
-        icon = '📁';
-      } else {
-        box.style.display = 'none';
-        return;
-      }
+        type = 'Assembly (Assemblage NCBI)'; icon = '📦';
+      } else if (value.includes('/') || /\.(fasta|fna|fa)(\.gz)?$/i.test(value)) {
+        type = 'Fichier local (FASTA assemblé)'; icon = '📁';
+      } else { box.style.display = 'none'; return; }
 
       typeEl.textContent = type;
       iconEl.textContent = icon;
       box.style.display = 'block';
     });
 
-    // Toggle options avancées
-    function toggleAdvanced() {
-      const options = document.getElementById('advanced-options');
-      const arrow = document.getElementById('advanced-arrow');
-      if (options.classList.contains('hidden')) {
-        options.classList.remove('hidden');
-        arrow.textContent = '▼';
-      } else {
-        options.classList.add('hidden');
-        arrow.textContent = '▶';
-      }
-    }
-
-    // Upload de fichier
+    // ===== UPLOAD FASTA =====
     document.getElementById('file_upload').addEventListener('change', async function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -281,7 +368,6 @@
       const progressBar = document.getElementById('upload-progress-bar');
       const progress = document.getElementById('upload-progress');
 
-      // Afficher le statut
       statusDiv.classList.remove('hidden');
       statusDiv.className = 'mt-2 p-3 rounded-lg border border-blue-200 bg-blue-50';
       uploadIcon.textContent = '⏳';
@@ -294,60 +380,168 @@
 
       try {
         progress.style.width = '60%';
-        const response = await fetch(`${API_BASE_URL}/api/upload`, {
-          method: 'POST',
-          body: formData
-        });
-
+        const response = await fetch(`${API_BASE_URL}/api/upload`, { method: 'POST', body: formData });
         progress.style.width = '90%';
         const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || 'Erreur lors de l\'upload');
-        }
-
+        if (!response.ok) throw new Error(data.detail || 'Erreur upload');
         progress.style.width = '100%';
 
-        // Remplir le champ sample_id avec le chemin du fichier
+        // Passer à l'onglet accession et remplir le chemin
+        switchTab('tab-accession');
         document.getElementById('sample_id').value = data.path;
         document.getElementById('sample_id').dispatchEvent(new Event('input'));
 
-        // Succès
         statusDiv.className = 'mt-2 p-3 rounded-lg border border-green-200 bg-green-50';
         uploadIcon.textContent = '✅';
-        uploadText.textContent = `${file.name} uploadé avec succès (${(data.size / 1024).toFixed(1)} Ko)`;
+        uploadText.textContent = `${file.name} uploadé (${(data.size / 1024).toFixed(1)} Ko)`;
         progressBar.classList.add('hidden');
-
       } catch (error) {
         statusDiv.className = 'mt-2 p-3 rounded-lg border border-red-200 bg-red-50';
         uploadIcon.textContent = '❌';
         uploadText.textContent = `Erreur : ${error.message}`;
         progressBar.classList.add('hidden');
       }
-
-      // Reset input file pour permettre re-upload du même fichier
       e.target.value = '';
     });
 
-    // Soumission du formulaire
+    // ===== UPLOAD FASTQ GÉNÉRIQUE =====
+    async function uploadFastqFile(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`${API_BASE_URL}/api/upload-fastq`, { method: 'POST', body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'Erreur upload');
+      return data;
+    }
+
+    // ===== UPLOAD R1 =====
+    document.getElementById('r1_upload').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const label = document.getElementById('r1-label');
+      const status = document.getElementById('r1-status');
+      label.textContent = `⏳ Upload de ${file.name}...`;
+      status.classList.add('hidden');
+      try {
+        const data = await uploadFastqFile(file);
+        uploadedR1Path = data.path;
+        label.textContent = `✅ ${file.name} (${(data.size / 1024 / 1024).toFixed(1)} Mo)`;
+        status.textContent = '✅ R1 prêt';
+        status.className = 'mt-1 text-sm text-green-700 font-medium';
+        status.classList.remove('hidden');
+        // Auto-remplir le nom d'échantillon
+        const nameField = document.getElementById('fastq-sample-name');
+        if (!nameField.value) {
+          nameField.value = file.name.replace(/\.(fastq|fq)(\.gz)?$/i, '').replace(/[_-]R1$/i, '').replace(/_1$/,'');
+        }
+      } catch (err) {
+        label.textContent = `❌ Erreur: ${err.message}`;
+        uploadedR1Path = null;
+      }
+      e.target.value = '';
+    });
+
+    // ===== UPLOAD R2 =====
+    document.getElementById('r2_upload').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const label = document.getElementById('r2-label');
+      const status = document.getElementById('r2-status');
+      label.textContent = `⏳ Upload de ${file.name}...`;
+      status.classList.add('hidden');
+      try {
+        const data = await uploadFastqFile(file);
+        uploadedR2Path = data.path;
+        label.textContent = `✅ ${file.name} (${(data.size / 1024 / 1024).toFixed(1)} Mo)`;
+        status.textContent = '✅ R2 prêt';
+        status.className = 'mt-1 text-sm text-green-700 font-medium';
+        status.classList.remove('hidden');
+      } catch (err) {
+        label.textContent = `❌ Erreur: ${err.message}`;
+        uploadedR2Path = null;
+      }
+      e.target.value = '';
+    });
+
+    // ===== UPLOAD SINGLE-END =====
+    document.getElementById('se_upload').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const label = document.getElementById('se-label');
+      const status = document.getElementById('se-status');
+      label.textContent = `⏳ Upload de ${file.name}...`;
+      status.classList.add('hidden');
+      try {
+        const data = await uploadFastqFile(file);
+        uploadedSePath = data.path;
+        label.textContent = `✅ ${file.name} (${(data.size / 1024 / 1024).toFixed(1)} Mo)`;
+        status.textContent = '✅ Fichier prêt';
+        status.className = 'mt-1 text-sm text-yellow-700 font-medium';
+        status.classList.remove('hidden');
+        const nameField = document.getElementById('fastq-sample-name');
+        if (!nameField.value) {
+          nameField.value = file.name.replace(/\.(fastq|fq)(\.gz)?$/i, '');
+        }
+      } catch (err) {
+        label.textContent = `❌ Erreur: ${err.message}`;
+        uploadedSePath = null;
+      }
+      e.target.value = '';
+    });
+
+    // ===== TOGGLE OPTIONS AVANCÉES =====
+    function toggleAdvanced() {
+      const options = document.getElementById('advanced-options');
+      const arrow = document.getElementById('advanced-arrow');
+      if (options.classList.contains('hidden')) {
+        options.classList.remove('hidden');
+        arrow.textContent = '▼';
+      } else {
+        options.classList.add('hidden');
+        arrow.textContent = '▶';
+      }
+    }
+
+    // ===== SOUMISSION DU FORMULAIRE =====
     document.getElementById('analysis-form').addEventListener('submit', async function(e) {
       e.preventDefault();
 
-      const sampleId = document.getElementById('sample_id').value.trim();
       const threads = parseInt(document.getElementById('threads').value);
       const prokkaMode = document.getElementById('prokka_mode').value;
       const force = document.getElementById('force').checked;
-
       const submitBtn = document.getElementById('submit-btn');
       const errorDiv = document.getElementById('error-message');
 
-      // Validation
-      if (!sampleId) {
-        showError('Veuillez entrer un identifiant d\'échantillon');
-        return;
+      let launchBody = null;
+
+      if (activeTab === 'tab-accession' || activeTab === 'tab-fasta') {
+        const sampleId = document.getElementById('sample_id').value.trim();
+        if (!sampleId) { showError('Veuillez entrer un identifiant'); return; }
+        launchBody = { sample_id: sampleId, threads, prokka_mode: prokkaMode, force };
+
+      } else if (activeTab === 'tab-fastq') {
+        // Déterminer quel mode FASTQ est actif (paired ou single)
+        if (uploadedR1Path && uploadedR2Path) {
+          // Paired-end
+          const sampleName = document.getElementById('fastq-sample-name').value.trim() ||
+                             uploadedR1Path.split('/').pop().replace(/\.(fastq|fq)(\.gz)?$/i, '').replace(/[_-]R1$/i, '');
+          launchBody = {
+            sample_id: uploadedR1Path,
+            reads_r2: uploadedR2Path,
+            threads, prokka_mode: prokkaMode, force
+          };
+        } else if (uploadedSePath) {
+          // Single-end
+          launchBody = { sample_id: uploadedSePath, threads, prokka_mode: prokkaMode, force };
+        } else if (uploadedR1Path && !uploadedR2Path) {
+          showError('Veuillez uploader le fichier R2 (reverse) pour compléter la paire');
+          return;
+        } else {
+          showError('Veuillez uploader vos fichiers FASTQ avant de lancer l\'analyse');
+          return;
+        }
       }
 
-      // Loading state
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<span class="animate-spin">⏳</span> Lancement en cours...';
       errorDiv.classList.add('hidden');
@@ -356,12 +550,7 @@
         const response = await fetch(`${API_BASE_URL}/api/launch`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sample_id: sampleId,
-            threads: threads,
-            prokka_mode: prokkaMode,
-            force: force
-          })
+          body: JSON.stringify(launchBody)
         });
 
         const data = await response.json();

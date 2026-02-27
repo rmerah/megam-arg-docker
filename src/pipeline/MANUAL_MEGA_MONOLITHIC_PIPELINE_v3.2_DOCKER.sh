@@ -151,6 +151,9 @@ PROKKA_MODE="${PROKKA_MODE:-auto}"
 # Variables pour Prokka (peuvent être définies par l'utilisateur)
 PROKKA_GENUS=""
 PROKKA_SPECIES=""
+# Chemins des fichiers FASTQ locaux (fournis via --reads-r1 / --reads-r2)
+LOCAL_R1_PATH=""
+LOCAL_R2_PATH=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -184,6 +187,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --prokka-species)
             PROKKA_SPECIES="$2"
+            shift 2
+            ;;
+        --reads-r1)
+            LOCAL_R1_PATH="$2"
+            shift 2
+            ;;
+        --reads-r2)
+            LOCAL_R2_PATH="$2"
             shift 2
             ;;
         -*)
@@ -285,9 +296,17 @@ fi
 detect_input_type() {
     local input="$1"
 
-    # Fichier local existant
+    # Fichier local existant — distinguer FASTA et FASTQ
     if [[ -f "$input" ]]; then
-        echo "local_fasta"
+        if [[ "$input" == *.fastq || "$input" == *.fq || "$input" == *.fastq.gz || "$input" == *.fq.gz ]]; then
+            if [[ -n "$LOCAL_R2_PATH" ]]; then
+                echo "local_fastq_paired"
+            else
+                echo "local_fastq_single"
+            fi
+        else
+            echo "local_fasta"
+        fi
         return 0
     fi
 
@@ -309,7 +328,15 @@ detect_input_type() {
         return 0
     fi
 
-    # Chemin de fichier qui n'existe pas encore
+    # Chemin de fichier qui n'existe pas encore (fichier en cours d'upload, etc.)
+    if [[ "$input" == *.fastq || "$input" == *.fq || "$input" == *.fastq.gz || "$input" == *.fq.gz ]]; then
+        if [[ -n "$LOCAL_R2_PATH" ]]; then
+            echo "local_fastq_paired"
+        else
+            echo "local_fastq_single"
+        fi
+        return 0
+    fi
     if [[ "$input" == *"/"* ]] || [[ "$input" == *".fasta"* ]] || [[ "$input" == *".fna"* ]]; then
         echo "local_fasta"
         return 0
@@ -342,6 +369,10 @@ else
             # Extraire le nom du fichier sans extension
             SAMPLE_ID=$(basename "$INPUT_ARG" | sed 's/\.\(fasta\|fna\|fa\)$//')
             LOCAL_FASTA_PATH="$INPUT_ARG"
+            ;;
+        local_fastq_paired|local_fastq_single)
+            # Extraire le nom de base en retirant extension + suffixes _R1/_1
+            SAMPLE_ID=$(basename "$LOCAL_R1_PATH" | sed 's/\.\(fastq\|fq\)\(\.gz\)\?$//' | sed 's/[_-]R1$//' | sed 's/_1$//')
             ;;
         *)
             SAMPLE_ID="$INPUT_ARG"
@@ -2568,6 +2599,63 @@ case "$INPUT_TYPE" in
             log_error "Fichier FASTA introuvable: $LOCAL_FASTA_PATH"
             exit 1
         fi
+        ;;
+
+    local_fastq_paired)
+        # ============ MODE FASTQ LOCAL PAIRED-END ============
+        log_info "Mode FASTQ local paired-end détecté..."
+
+        if [[ ! -f "$LOCAL_R1_PATH" ]]; then
+            log_error "Fichier R1 introuvable: $LOCAL_R1_PATH"
+            exit 1
+        fi
+        if [[ ! -f "$LOCAL_R2_PATH" ]]; then
+            log_error "Fichier R2 introuvable: $LOCAL_R2_PATH"
+            exit 1
+        fi
+
+        # Copier vers DATA_DIR avec nomenclature standard (identique au cas SRA)
+        # Utiliser un lien dur si même filesystem (évite la copie d'un fichier volumineux)
+        if [[ "$LOCAL_R1_PATH" == *.gz ]]; then
+            ln "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}_1.fastq.gz" 2>/dev/null || \
+                cp "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}_1.fastq.gz"
+            ln "$LOCAL_R2_PATH" "$DATA_DIR/${SAMPLE_ID}_2.fastq.gz" 2>/dev/null || \
+                cp "$LOCAL_R2_PATH" "$DATA_DIR/${SAMPLE_ID}_2.fastq.gz"
+            READ1="$DATA_DIR/${SAMPLE_ID}_1.fastq.gz"
+            READ2="$DATA_DIR/${SAMPLE_ID}_2.fastq.gz"
+        else
+            ln "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}_1.fastq" 2>/dev/null || \
+                cp "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}_1.fastq"
+            ln "$LOCAL_R2_PATH" "$DATA_DIR/${SAMPLE_ID}_2.fastq" 2>/dev/null || \
+                cp "$LOCAL_R2_PATH" "$DATA_DIR/${SAMPLE_ID}_2.fastq"
+            READ1="$DATA_DIR/${SAMPLE_ID}_1.fastq"
+            READ2="$DATA_DIR/${SAMPLE_ID}_2.fastq"
+        fi
+        IS_SINGLE_END=false
+        log_success "Reads pairés chargés (R1: $(basename "$LOCAL_R1_PATH"), R2: $(basename "$LOCAL_R2_PATH"))"
+        ;;
+
+    local_fastq_single)
+        # ============ MODE FASTQ LOCAL SINGLE-END ============
+        log_info "Mode FASTQ local single-end détecté..."
+
+        if [[ ! -f "$LOCAL_R1_PATH" ]]; then
+            log_error "Fichier FASTQ introuvable: $LOCAL_R1_PATH"
+            exit 1
+        fi
+
+        if [[ "$LOCAL_R1_PATH" == *.gz ]]; then
+            ln "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}.fastq.gz" 2>/dev/null || \
+                cp "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}.fastq.gz"
+            READ1="$DATA_DIR/${SAMPLE_ID}.fastq.gz"
+        else
+            ln "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}.fastq" 2>/dev/null || \
+                cp "$LOCAL_R1_PATH" "$DATA_DIR/${SAMPLE_ID}.fastq"
+            READ1="$DATA_DIR/${SAMPLE_ID}.fastq"
+        fi
+        READ2=""
+        IS_SINGLE_END=true
+        log_success "Read single-end chargé ($(basename "$LOCAL_R1_PATH"))"
         ;;
 
     *)

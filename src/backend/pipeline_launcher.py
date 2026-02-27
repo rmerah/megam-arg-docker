@@ -34,12 +34,13 @@ class PipelineLauncher:
         if not self.pipeline_script.exists():
             raise FileNotFoundError(f"Pipeline script non trouvé: {pipeline_script}")
 
-    def detect_input_type(self, sample_id: str) -> InputType:
+    def detect_input_type(self, sample_id: str, reads_r2: Optional[str] = None) -> InputType:
         """
         Détecte automatiquement le type d'input basé sur le pattern
 
         Args:
             sample_id: Identifiant ou chemin fichier
+            reads_r2: Chemin fichier R2 (si paired-end local)
 
         Returns:
             InputType correspondant
@@ -58,7 +59,14 @@ class PipelineLauncher:
         if re.match(r'^GC[AF]_[0-9]+', sample_id):
             return InputType.ASSEMBLY
 
-        # Fichier local
+        # FASTQ local (chemin fourni via upload)
+        fastq_exts = ('.fastq', '.fq', '.fastq.gz', '.fq.gz')
+        if sample_id.endswith(fastq_exts):
+            if reads_r2:
+                return InputType.LOCAL_FASTQ_PAIRED
+            return InputType.LOCAL_FASTQ_SINGLE
+
+        # Fichier FASTA local assemblé
         if sample_id.endswith(('.fasta', '.fna', '.fa')) or '/' in sample_id:
             return InputType.LOCAL_FASTA
 
@@ -108,7 +116,8 @@ class PipelineLauncher:
         prokka_mode: str = "auto",
         prokka_genus: Optional[str] = None,
         prokka_species: Optional[str] = None,
-        force: bool = True
+        force: bool = True,
+        reads_r2: Optional[str] = None
     ) -> str:
         """
         Construit la commande bash complète pour lancer le pipeline
@@ -142,6 +151,13 @@ class PipelineLauncher:
         if force:
             cmd_parts.append("--force")
 
+        # Pour les FASTQ locaux, passer les chemins R1 et R2 explicitement
+        fastq_exts = ('.fastq', '.fq', '.fastq.gz', '.fq.gz')
+        if sample_id.endswith(fastq_exts):
+            cmd_parts.append(f"--reads-r1 {shlex.quote(sample_id)}")
+            if reads_r2:
+                cmd_parts.append(f"--reads-r2 {shlex.quote(reads_r2)}")
+
         cmd = " ".join(cmd_parts)
 
         return cmd
@@ -154,6 +170,7 @@ class PipelineLauncher:
         prokka_genus: Optional[str] = None,
         prokka_species: Optional[str] = None,
         force: bool = True,
+        reads_r2: Optional[str] = None,
         on_complete: Optional[Callable] = None
     ) -> Dict[str, Any]:
         """
@@ -177,8 +194,15 @@ class PipelineLauncher:
                 - run_number: Numéro de run
         """
         # Détecter type d'input et run number
-        input_type = self.detect_input_type(sample_id)
-        run_number = self.get_next_run_number(sample_id)
+        input_type = self.detect_input_type(sample_id, reads_r2=reads_r2)
+        # Pour les FASTQ locaux, le sample_id est le chemin R1 → dériver un nom propre
+        sample_name = sample_id
+        if input_type in (InputType.LOCAL_FASTQ_PAIRED, InputType.LOCAL_FASTQ_SINGLE):
+            import re as _re
+            sample_name = _re.sub(r'\.(fastq|fq)(\.gz)?$', '', sample_id.split('/')[-1])
+            sample_name = _re.sub(r'[_-]R1$', '', sample_name)
+            sample_name = _re.sub(r'_1$', '', sample_name)
+        run_number = self.get_next_run_number(sample_name)
 
         # Construire commande
         command = self.build_command(
@@ -187,7 +211,8 @@ class PipelineLauncher:
             prokka_mode=prokka_mode,
             prokka_genus=prokka_genus,
             prokka_species=prokka_species,
-            force=force
+            force=force,
+            reads_r2=reads_r2
         )
 
         logger.info(f"Lancement pipeline pour {sample_id} (run {run_number})")
@@ -214,7 +239,8 @@ class PipelineLauncher:
             "command": command,
             "input_type": input_type.value,
             "run_number": run_number,
-            "output_dir": str(self.work_dir / "outputs" / f"{sample_id}_{run_number}")
+            "sample_name": sample_name,
+            "output_dir": str(self.work_dir / "outputs" / f"{sample_name}_{run_number}")
         }
 
     async def _monitor_completion(
@@ -341,8 +367,20 @@ class PipelineLauncher:
                     ("Rapports", 90),
                     ("TERMINÉ AVEC SUCCÈS", 100)
                 ]
+            elif input_type in (InputType.LOCAL_FASTQ_PAIRED, InputType.LOCAL_FASTQ_SINGLE):
+                # Reads FASTQ locaux (même flux que SRA, sans téléchargement)
+                modules = [
+                    ("Reads pairés chargés", 5),
+                    ("Read single-end chargé", 5),
+                    ("Contrôle qualité", 20),
+                    ("Assemblage", 45),
+                    ("Annotation", 65),
+                    ("Détection ARG", 82),
+                    ("Rapports", 92),
+                    ("TERMINÉ AVEC SUCCÈS", 100)
+                ]
             else:
-                # GenBank/Assembly (skip QC et assemblage)
+                # GenBank/Assembly/local_fasta (skip QC et assemblage)
                 modules = [
                     ("Annotation", 30),
                     ("Détection ARG", 60),

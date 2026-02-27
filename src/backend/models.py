@@ -18,10 +18,12 @@ class JobStatus(str, Enum):
 
 class InputType(str, Enum):
     """Types d'entrées acceptés par le pipeline"""
-    SRA = "sra"              # SRR*, ERR*, DRR*
-    GENBANK = "genbank"      # CP*, NC*, NZ*
-    ASSEMBLY = "assembly"    # GCA_*, GCF_*
-    LOCAL_FASTA = "local_fasta"  # Fichier local
+    SRA = "sra"                          # SRR*, ERR*, DRR*
+    GENBANK = "genbank"                  # CP*, NC*, NZ*
+    ASSEMBLY = "assembly"                # GCA_*, GCF_*
+    LOCAL_FASTA = "local_fasta"          # Fichier FASTA local assemblé
+    LOCAL_FASTQ_PAIRED = "local_fastq_paired"  # Reads pairés locaux R1+R2
+    LOCAL_FASTQ_SINGLE = "local_fastq_single"  # Read local single-end
 
 
 class ProkkaMode(str, Enum):
@@ -44,6 +46,21 @@ class LaunchAnalysisRequest(BaseModel):
     prokka_genus: Optional[str] = Field(None, description="Genre bactérien (requis si prokka_mode=custom)")
     prokka_species: Optional[str] = Field(None, description="Espèce bactérienne (requis si prokka_mode=custom)")
     force: Optional[bool] = Field(False, description="Mode non-interactif (accepte automatiquement)")
+    reads_r2: Optional[str] = Field(None, description="Chemin fichier R2 pour reads pairés Illumina locaux")
+
+    @field_validator('reads_r2')
+    @classmethod
+    def validate_reads_r2(cls, v: Optional[str]) -> Optional[str]:
+        """Valide le chemin du fichier R2"""
+        if v is None:
+            return v
+        v = v.strip()
+        if not v.endswith(('.fastq', '.fq', '.fastq.gz', '.fq.gz')):
+            raise ValueError("reads_r2 doit être un fichier .fastq/.fq (optionnellement .gz)")
+        shell_dangerous = set(';$`|&(){}[]!#~')
+        if shell_dangerous.intersection(v):
+            raise ValueError("reads_r2 contient des caractères interdits")
+        return v
 
     @field_validator('sample_id')
     @classmethod
@@ -72,7 +89,7 @@ class LaunchAnalysisRequest(BaseModel):
         if re.match(assembly_pattern, v):
             return v
 
-        # Fichier local : vérifier extension et interdire caractères dangereux
+        # Fichier local FASTA : vérifier extension et interdire caractères dangereux
         if v.endswith(('.fasta', '.fna', '.fa')):
             if shell_dangerous.intersection(v):
                 raise ValueError(
@@ -80,14 +97,13 @@ class LaunchAnalysisRequest(BaseModel):
                 )
             return v
 
-        # Fichiers FASTQ : non supportés en upload local (le pipeline requiert un assemblage pré-fait).
-        # Les reads FASTQ doivent être soumis via un accession SRA (SRR*, ERR*, DRR*).
+        # Fichier local FASTQ (single-end ou R1 d'une paire)
         if v.endswith(('.fastq', '.fq', '.fastq.gz', '.fq.gz')):
-            raise ValueError(
-                "Les fichiers FASTQ ne peuvent pas être soumis directement. "
-                "Pour des reads bruts Illumina, utilisez un accession SRA (ex: SRR28083254). "
-                "Pour uploader un génome, utilisez un fichier FASTA/FNA assemblé."
-            )
+            if shell_dangerous.intersection(v):
+                raise ValueError(
+                    "sample_id contient des caractères interdits pour un chemin de fichier"
+                )
+            return v
 
         raise ValueError(
             "Format sample_id invalide. "

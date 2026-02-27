@@ -155,67 +155,80 @@ async def health_check():
 UPLOAD_DIR = PIPELINE_DIR / "data" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {'.fasta', '.fa', '.fna', '.fasta.gz', '.fa.gz'}
-# Note: les fichiers FASTQ ne sont pas supportés en upload local car le pipeline nécessite
-# un génome pré-assemblé. Les reads bruts doivent être soumis via accession SRA.
+ALLOWED_FASTA_EXTENSIONS = {'.fasta', '.fa', '.fna', '.fasta.gz', '.fa.gz'}
+ALLOWED_FASTQ_EXTENSIONS = {'.fastq', '.fq', '.fastq.gz', '.fq.gz'}
 
-@app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...)):
-    """
-    Upload un fichier FASTA/FASTQ pour analyse
 
-    Returns:
-        Le chemin du fichier sur le serveur à utiliser comme sample_id
-    """
+async def _save_upload(file: UploadFile, allowed_exts: set) -> dict:
+    """Helper interne : valide l'extension, sauvegarde le fichier, retourne les métadonnées."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nom de fichier manquant")
 
-    # Valider l'extension
     filename = file.filename.lower()
-    valid = False
-    for ext in ALLOWED_EXTENSIONS:
-        if filename.endswith(ext):
-            valid = True
-            break
-    if not valid:
-        # Message spécifique pour les FASTQ
-        if any(filename.endswith(ext) for ext in ('.fastq', '.fq', '.fastq.gz', '.fq.gz')):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Les fichiers FASTQ (reads bruts) ne peuvent pas être uploadés directement. "
-                    "Pour analyser des reads Illumina, utilisez un accession SRA (ex: SRR28083254). "
-                    "Le pipeline téléchargera les reads et effectuera QC + assemblage automatiquement."
-                )
-            )
+    if not any(filename.endswith(ext) for ext in allowed_exts):
         raise HTTPException(
             status_code=400,
-            detail="Format non supporté. Extensions acceptées pour l'upload : .fasta, .fa, .fna (génome assemblé)"
+            detail=f"Format non supporté. Extensions acceptées : {', '.join(sorted(allowed_exts))}"
         )
 
-    # Nettoyer le nom de fichier (sécurité)
     safe_filename = re_module.sub(r'[^a-zA-Z0-9._-]', '_', file.filename)
     dest_path = UPLOAD_DIR / safe_filename
 
-    # Écrire le fichier
     try:
+        content = await file.read()
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Fichier vide")
         with open(dest_path, "wb") as f:
-            content = await file.read()
-            if len(content) == 0:
-                raise HTTPException(status_code=400, detail="Fichier vide")
             f.write(content)
-
         logger.info(f"Fichier uploadé : {dest_path} ({len(content)} bytes)")
-
-        return {
-            "filename": safe_filename,
-            "path": str(dest_path),
-            "size": len(content)
-        }
+        return {"filename": safe_filename, "path": str(dest_path), "size": len(content)}
     except HTTPException:
         raise
     except OSError:
         raise HTTPException(status_code=500, detail="Erreur lors de l'enregistrement du fichier")
+
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload un fichier FASTA assemblé. Retourne le chemin à utiliser comme sample_id."""
+    return await _save_upload(file, ALLOWED_FASTA_EXTENSIONS)
+
+
+@app.post("/api/upload-fastq")
+async def upload_fastq(file: UploadFile = File(...)):
+    """
+    Upload un fichier FASTQ (read single-end ou R1/R2 d'une paire).
+    Retourne le chemin à utiliser comme sample_id (ou reads_r2 pour le R2).
+    """
+    return await _save_upload(file, ALLOWED_FASTQ_EXTENSIONS)
+
+
+@app.post("/api/upload-paired")
+async def upload_paired(
+    r1_file: UploadFile = File(...),
+    r2_file: UploadFile = File(...)
+):
+    """
+    Upload simultané de deux fichiers FASTQ (R1 et R2 paired-end).
+    Retourne r1_path, r2_path et le sample_name déduit du nom de R1.
+    """
+    r1 = await _save_upload(r1_file, ALLOWED_FASTQ_EXTENSIONS)
+    r2 = await _save_upload(r2_file, ALLOWED_FASTQ_EXTENSIONS)
+
+    # Dériver un nom d'échantillon propre depuis le nom du fichier R1
+    import re as _re
+    sample_name = _re.sub(r'\.(fastq|fq)(\.gz)?$', '', r1_file.filename or "sample", flags=_re.IGNORECASE)
+    sample_name = _re.sub(r'[_-]R1$', '', sample_name, flags=_re.IGNORECASE)
+    sample_name = _re.sub(r'_1$', '', sample_name)
+    sample_name = _re.sub(r'[^a-zA-Z0-9._-]', '_', sample_name)
+
+    return {
+        "r1_path": r1["path"],
+        "r2_path": r2["path"],
+        "r1_size": r1["size"],
+        "r2_size": r2["size"],
+        "sample_name": sample_name
+    }
 
 
 @app.post("/api/launch", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
@@ -305,6 +318,7 @@ async def launch_analysis(request: LaunchAnalysisRequest):
             prokka_genus=request.prokka_genus,
             prokka_species=request.prokka_species,
             force=request.force,
+            reads_r2=request.reads_r2,
             on_complete=on_complete
         )
 
