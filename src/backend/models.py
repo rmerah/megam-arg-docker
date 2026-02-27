@@ -80,6 +80,15 @@ class LaunchAnalysisRequest(BaseModel):
                 )
             return v
 
+        # Fichiers FASTQ : non supportés en upload local (le pipeline requiert un assemblage pré-fait).
+        # Les reads FASTQ doivent être soumis via un accession SRA (SRR*, ERR*, DRR*).
+        if v.endswith(('.fastq', '.fq', '.fastq.gz', '.fq.gz')):
+            raise ValueError(
+                "Les fichiers FASTQ ne peuvent pas être soumis directement. "
+                "Pour des reads bruts Illumina, utilisez un accession SRA (ex: SRR28083254). "
+                "Pour uploader un génome, utilisez un fichier FASTA/FNA assemblé."
+            )
+
         raise ValueError(
             "Format sample_id invalide. "
             "Attendu: SRR*/ERR*/DRR* (SRA), CP*/NC*/NZ* (GenBank), "

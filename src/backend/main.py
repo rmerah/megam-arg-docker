@@ -155,7 +155,9 @@ async def health_check():
 UPLOAD_DIR = PIPELINE_DIR / "data" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {'.fasta', '.fa', '.fna', '.fastq', '.fq', '.fasta.gz', '.fastq.gz', '.fa.gz', '.fq.gz'}
+ALLOWED_EXTENSIONS = {'.fasta', '.fa', '.fna', '.fasta.gz', '.fa.gz'}
+# Note: les fichiers FASTQ ne sont pas supportés en upload local car le pipeline nécessite
+# un génome pré-assemblé. Les reads bruts doivent être soumis via accession SRA.
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
@@ -176,9 +178,19 @@ async def upload_file(file: UploadFile = File(...)):
             valid = True
             break
     if not valid:
+        # Message spécifique pour les FASTQ
+        if any(filename.endswith(ext) for ext in ('.fastq', '.fq', '.fastq.gz', '.fq.gz')):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Les fichiers FASTQ (reads bruts) ne peuvent pas être uploadés directement. "
+                    "Pour analyser des reads Illumina, utilisez un accession SRA (ex: SRR28083254). "
+                    "Le pipeline téléchargera les reads et effectuera QC + assemblage automatiquement."
+                )
+            )
         raise HTTPException(
             status_code=400,
-            detail="Format non supporté. Extensions acceptées : .fasta, .fa, .fna, .fastq, .fq (et .gz)"
+            detail="Format non supporté. Extensions acceptées pour l'upload : .fasta, .fa, .fna (génome assemblé)"
         )
 
     # Nettoyer le nom de fichier (sécurité)

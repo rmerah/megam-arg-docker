@@ -73,11 +73,14 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
             </svg>
             <span class="text-sm font-semibold text-gray-700">Upload</span>
-            <input type="file" id="file_upload" accept=".fasta,.fa,.fna,.fastq,.fq,.gz" class="hidden">
+            <input type="file" id="file_upload" accept=".fasta,.fa,.fna,.fasta.gz,.fa.gz,.fna.gz" class="hidden">
           </label>
         </div>
         <p class="text-sm text-gray-500 mt-2">
-          Formats supportés: SRA (SRR*), GenBank (CP*, NC*), Assembly (GCA*), ou <strong>uploadez un fichier FASTA/FASTQ</strong>
+          Formats supportés: SRA (SRR*), GenBank (CP*, NC*), Assembly (GCA*), ou <strong>uploadez un fichier FASTA/FNA assemblé</strong>
+        </p>
+        <p class="text-xs text-blue-600 mt-1">
+          💡 Pour des reads Illumina bruts : utilisez l'accession SRA (ex: SRR28083254). Les FASTQ ne peuvent pas être uploadés directement.
         </p>
         <!-- Upload progress -->
         <div id="upload-status" class="hidden mt-2 p-3 rounded-lg border">
@@ -170,9 +173,10 @@
           <p class="text-xs text-purple-600 mt-1">Annotation → ARG (pas d'assemblage)</p>
         </div>
         <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
-          <p class="font-bold text-orange-800">📁 Fichier local</p>
-          <p class="text-sm text-orange-700">Ex: /chemin/vers/genome.fasta</p>
-          <p class="text-xs text-orange-600 mt-1">FASTA ou FASTQ local</p>
+          <p class="font-bold text-orange-800">📁 Fichier local (FASTA assemblé)</p>
+          <p class="text-sm text-orange-700">Upload un fichier .fasta / .fna / .fa</p>
+          <p class="text-xs text-orange-600 mt-1">Annotation → ARG (génome pré-assemblé uniquement)</p>
+          <p class="text-xs text-orange-500 mt-1">⚠️ Les fichiers FASTQ (reads) ne sont pas supportés ici → utilisez SRA</p>
         </div>
       </div>
     </div>
@@ -240,8 +244,8 @@
       } else if (/^GC[AF]_\d+/i.test(value)) {
         type = 'Assembly (Assemblage NCBI)';
         icon = '📦';
-      } else if (value.includes('/') || value.endsWith('.fasta') || value.endsWith('.fa') || value.endsWith('.fastq')) {
-        type = 'Fichier local';
+      } else if (value.includes('/') || value.endsWith('.fasta') || value.endsWith('.fa') || value.endsWith('.fna')) {
+        type = 'Fichier local (FASTA assemblé)';
         icon = '📁';
       } else {
         box.style.display = 'none';

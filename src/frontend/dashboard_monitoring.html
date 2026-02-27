@@ -316,7 +316,13 @@
       if (!dateStr) return null;
       // Remplacer l'espace par 'T' pour garantir un parsing ISO coherent
       const normalized = String(dateStr).replace(' ', 'T');
-      const d = new Date(normalized);
+      // Le conteneur Docker tourne en UTC. Forcer l'interpretation UTC
+      // en ajoutant 'Z' si aucun marqueur de timezone n'est present.
+      // Sans cela, le navigateur interprete la date comme heure locale (ex: UTC+1)
+      // et le chronometre affiche +1h de trop.
+      const hasTimezone = normalized.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(normalized);
+      const utcStr = hasTimezone ? normalized : normalized + 'Z';
+      const d = new Date(utcStr);
       return isNaN(d.getTime()) ? null : d;
     }
 

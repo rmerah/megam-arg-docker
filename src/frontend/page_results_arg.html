@@ -683,12 +683,21 @@
 
       try {
         // Charger les résultats
-        const results = await fetch(`${API_BASE_URL}/api/results/${jobId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/results/${jobId}`, {
           headers: { 'Cache-Control': 'no-cache' }
-        }).then(r => {
-          if (!r.ok) throw new Error('Job non trouvé ou pas encore terminé');
-          return r.json();
         });
+        if (!response.ok) {
+          let errMsg = `Erreur ${response.status}`;
+          try {
+            const errData = await response.json();
+            errMsg = errData.detail || errMsg;
+          } catch (_) {}
+          // Messages plus clairs selon le code HTTP
+          if (response.status === 404) errMsg = `Job ${jobId} non trouvé dans la base de données.`;
+          else if (response.status === 400) errMsg = `Analyse pas encore terminée. Revenez au dashboard pour suivre la progression.`;
+          throw new Error(errMsg);
+        }
+        const results = await response.json();
 
         displayResults(results);
 
