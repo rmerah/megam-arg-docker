@@ -41,7 +41,7 @@
   <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto cursor-pointer" onclick="openAboutModal()" title="À propos de MEGAM ARG Detection">
       </div>
       <nav class="flex gap-1 items-center flex-wrap">
         <a href="form_launch_analysis.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
@@ -56,11 +56,8 @@
         <a href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
           Dashboard
         </a>
-        <a href="how_it_works.html" class="bg-white text-blue-900 px-4 py-2 rounded font-medium hover:bg-blue-100 transition text-sm">
-          Comment ça marche ?
-        </a>
-        <a href="comprendre_outils.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
-          Comprendre mes outils
+        <a href="comprendre_pipeline.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Comprendre le pipeline
         </a>
       </nav>
     </div>
@@ -500,5 +497,28 @@
     </p>
   </footer>
 
+  <!-- About Modal -->
+  <div id="about-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
+      <div class="text-center">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-20 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">MEGAM ARG Detection</h2>
+        <p class="text-gray-500 text-sm mb-4">Pipeline de détection des gènes de résistance aux antimicrobiens</p>
+        <div class="bg-blue-50 rounded-lg p-4 mb-4 text-left">
+          <p class="text-sm text-gray-600"><strong>Version :</strong> v3.2</p>
+          <p class="text-sm text-gray-600"><strong>Pipeline :</strong> AMRFinderPlus, ResFinder, CARD, VFDB, MLST</p>
+          <p class="text-sm text-gray-600"><strong>Assemblage :</strong> SPAdes + QUAST</p>
+          <p class="text-sm text-gray-600"><strong>Annotation :</strong> Prokka</p>
+          <p class="text-sm text-gray-600"><strong>Architecture :</strong> Docker + FastAPI + Nginx</p>
+        </div>
+        <button onclick="closeAboutModal()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">Fermer</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    function openAboutModal() { document.getElementById('about-modal').classList.remove('hidden'); }
+    function closeAboutModal() { document.getElementById('about-modal').classList.add('hidden'); }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAboutModal(); });
+  </script>
 </body>
 </html>

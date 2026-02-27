@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEGAM ARG Detection - Comprendre le pipeline</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .timeline-line { width: 4px; background: linear-gradient(to bottom, #3b82f6, #8b5cf6); }
+    .arrow-bounce { animation: bounce-right 2s infinite; }
+    @keyframes bounce-right {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(6px); }
+    }
+    .fade-in { animation: fadeIn 0.6s ease-in; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .code-block {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+    }
+    .code-block .key { color: #7dd3fc; }
+    .code-block .string { color: #86efac; }
+    .code-block .comment { color: #64748b; }
+    .code-block .method { color: #fbbf24; }
+    .tab-btn { transition: all 0.2s; }
+    .tab-btn.active { background: white; color: #1e3a8a; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .tab-btn:not(.active) { background: #1e40af; color: #bfdbfe; }
+    .tab-btn:not(.active):hover { background: #1d4ed8; color: white; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+
+  <!-- HEADER -->
+  <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto cursor-pointer" onclick="openAboutModal()" title="À propos de MEGAM ARG Detection">
+      </div>
+      <nav class="flex gap-1 items-center flex-wrap">
+        <a href="form_launch_analysis.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Nouvelle Analyse
+        </a>
+        <a href="jobs_list.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Historique
+        </a>
+        <a href="databases.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Bases de données
+        </a>
+        <a href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Dashboard
+        </a>
+        <a href="comprendre_pipeline.html" class="bg-white text-blue-900 px-4 py-2 rounded font-medium hover:bg-blue-100 transition text-sm">
+          Comprendre le pipeline
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- Titre principal -->
+    <div class="text-center mb-8 fade-in">
+      <h1 class="text-4xl font-bold text-gray-800 mb-3">Comprendre le pipeline MEGAM</h1>
+      <p class="text-lg text-gray-500 max-w-2xl mx-auto">
+        Architecture, fonctionnement et outils bioinformatiques expliqués.
+      </p>
+    </div>
+
+    <!-- Onglets -->
+    <div class="flex gap-2 mb-8 bg-blue-900 rounded-xl p-2 fade-in">
+      <button id="tab-how" class="tab-btn active flex-1 px-6 py-3 rounded-lg text-sm" onclick="switchTab('how')">
+        🔍 Comment ça marche ?
+      </button>
+      <button id="tab-tools" class="tab-btn flex-1 px-6 py-3 rounded-lg text-sm" onclick="switchTab('tools')">
+        🧪 Comprendre mes outils
+      </button>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- ONGLET 1 : Comment ça marche ? -->
+    <!-- ========================================================== -->
+    <div id="panel-how">
+
+      <p class="text-gray-600 mb-8">L'application suit une architecture classique en 3 couches :</p>
+
+      <section class="mb-16 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Architecture de l'application</h2>
+        <div class="grid md:grid-cols-3 gap-6 mb-8">
+          <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 text-center">
+            <div class="text-5xl mb-3">🖥️</div>
+            <h3 class="text-xl font-bold text-blue-700 mb-2">Frontend</h3>
+            <p class="text-sm font-semibold text-blue-600 mb-3">Interface utilisateur</p>
+            <p class="text-gray-600 text-sm">Les pages web : formulaires de lancement, tableau de bord de suivi et pages de résultats. Le navigateur envoie des requêtes HTTP à l'API.</p>
+            <div class="mt-4 text-xs text-blue-500 font-mono bg-blue-100 rounded px-2 py-1">HTML + CSS + JavaScript</div>
+          </div>
+          <div class="bg-amber-50 border-2 border-amber-200 rounded-xl p-6 text-center">
+            <div class="text-5xl mb-3">🔗</div>
+            <h3 class="text-xl font-bold text-amber-700 mb-2">API REST</h3>
+            <p class="text-sm font-semibold text-amber-600 mb-3">Couche de communication</p>
+            <p class="text-gray-600 text-sm">L'interface entre le frontend et le backend. Reçoit les requêtes HTTP (POST, GET), les valide, et retourne les réponses au format JSON.</p>
+            <div class="mt-4 text-xs text-amber-500 font-mono bg-amber-100 rounded px-2 py-1">Routes /api/launch, /api/status, /api/results</div>
+          </div>
+          <div class="bg-green-50 border-2 border-green-200 rounded-xl p-6 text-center">
+            <div class="text-5xl mb-3">⚙️</div>
+            <h3 class="text-xl font-bold text-green-700 mb-2">Backend + Pipeline</h3>
+            <p class="text-sm font-semibold text-green-600 mb-3">Moteur d'analyse</p>
+            <p class="text-gray-600 text-sm">Le serveur Python (FastAPI) gère les jobs et lance le pipeline bash qui orchestre les outils bioinformatiques via des environnements Mamba.</p>
+            <div class="mt-4 text-xs text-green-500 font-mono bg-green-100 rounded px-2 py-1">FastAPI + Pipeline Bash + Mamba</div>
+          </div>
+        </div>
+        <div class="flex items-center justify-center gap-4 text-gray-400 mb-4 flex-wrap">
+          <div class="bg-blue-100 text-blue-600 px-4 py-2 rounded-lg font-semibold text-sm">Requête HTTP</div>
+          <span class="text-2xl arrow-bounce">&#10145;</span>
+          <div class="bg-amber-100 text-amber-600 px-4 py-2 rounded-lg font-semibold text-sm">Validation + Routage</div>
+          <span class="text-2xl arrow-bounce">&#10145;</span>
+          <div class="bg-green-100 text-green-600 px-4 py-2 rounded-lg font-semibold text-sm">Exécution Pipeline</div>
+          <span class="text-2xl arrow-bounce">&#10145;</span>
+          <div class="bg-purple-100 text-purple-600 px-4 py-2 rounded-lg font-semibold text-sm">Résultats JSON</div>
+        </div>
+      </section>
+
+      <section class="mb-16 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Du clic aux résultats : étape par étape</h2>
+        <p class="text-gray-600 mb-8">Voici exactement ce qu'il se passe quand vous lancez une analyse :</p>
+        <div class="relative">
+          <div class="absolute left-6 top-0 bottom-0 timeline-line hidden md:block"></div>
+
+          <div class="relative flex gap-6 mb-10">
+            <div class="flex-shrink-0 z-10">
+              <div class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">1</div>
+            </div>
+            <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+              <h3 class="text-lg font-bold text-blue-700 mb-2">Vous remplissez le formulaire</h3>
+              <p class="text-gray-600 text-sm mb-3">Vous entrez un identifiant (ex: <code class="bg-gray-100 px-1 rounded">SRR28083254</code>) ou uploadez vos fichiers FASTQ/FASTA dans le formulaire "Nouvelle Analyse". Vous choisissez les options et cliquez sur <strong>"Lancer l'analyse"</strong>.</p>
+              <div class="text-xs text-blue-500 font-mono">Frontend : form_launch_analysis.html</div>
+            </div>
+          </div>
+
+          <div class="relative flex gap-6 mb-10">
+            <div class="flex-shrink-0 z-10">
+              <div class="w-12 h-12 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">2</div>
+            </div>
+            <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-amber-500">
+              <h3 class="text-lg font-bold text-amber-700 mb-2">Le navigateur envoie une requête HTTP</h3>
+              <p class="text-gray-600 text-sm mb-3">Votre navigateur envoie une requête <strong>POST</strong> à l'API avec les paramètres d'analyse.</p>
+              <div class="code-block text-sm">
+                <span class="comment">// Le navigateur envoie ceci :</span><br>
+                <span class="method">POST</span> /api/launch<br><br>
+                {<br>
+                &nbsp;&nbsp;<span class="key">"sample_id"</span>: <span class="string">"SRR28083254"</span>,<br>
+                &nbsp;&nbsp;<span class="key">"threads"</span>: 4,<br>
+                &nbsp;&nbsp;<span class="key">"prokka_mode"</span>: <span class="string">"auto"</span><br>
+                }
+              </div>
+              <div class="mt-3 text-xs text-amber-500 font-mono">Frontend (api-client.js) &#10145; API (FastAPI)</div>
+            </div>
+          </div>
+
+          <div class="relative flex gap-6 mb-10">
+            <div class="flex-shrink-0 z-10">
+              <div class="w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">3</div>
+            </div>
+            <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+              <h3 class="text-lg font-bold text-green-700 mb-2">Le backend crée le job et lance le pipeline</h3>
+              <p class="text-gray-600 text-sm mb-3">FastAPI reçoit la requête, crée une entrée dans la base de données SQLite (status: <code class="bg-green-100 text-green-700 px-1 rounded">PENDING</code>), puis lance le pipeline bash en arrière-plan. Le status passe à <code class="bg-yellow-100 text-yellow-700 px-1 rounded">RUNNING</code>.</p>
+              <div class="code-block text-sm">
+                <span class="comment"># Le backend fait :</span><br>
+                1. INSERT INTO jobs (...) <span class="comment">-- crée le job en DB</span><br>
+                2. subprocess.Popen(pipeline.sh) <span class="comment">-- lance le pipeline</span><br>
+                3. return {<span class="key">"job_id"</span>: <span class="string">"abc123"</span>} <span class="comment">-- répond au frontend</span>
+              </div>
+              <div class="mt-3 text-xs text-green-500 font-mono">Backend : main.py + pipeline_launcher.py + database.py</div>
+            </div>
+          </div>
+
+          <div class="relative flex gap-6 mb-10">
+            <div class="flex-shrink-0 z-10">
+              <div class="w-12 h-12 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">4</div>
+            </div>
+            <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
+              <h3 class="text-lg font-bold text-indigo-700 mb-2">Le monitoring en temps réel (polling)</h3>
+              <p class="text-gray-600 text-sm mb-3">Le frontend interroge régulièrement l'API (<strong>polling</strong> toutes les 3-5 secondes) pour connaître l'état d'avancement du job : statut, étape en cours, et progression estimée.</p>
+              <div class="code-block text-sm">
+                <span class="comment">// Toutes les 5 secondes :</span><br>
+                <span class="method">GET</span> /api/status/abc123<br><br>
+                <span class="comment">// Réponse :</span><br>
+                {<br>
+                &nbsp;&nbsp;<span class="key">"status"</span>: <span class="string">"RUNNING"</span>,<br>
+                &nbsp;&nbsp;<span class="key">"current_step"</span>: <span class="string">"AMRFinderPlus"</span>,<br>
+                &nbsp;&nbsp;<span class="key">"progress"</span>: <span class="string">"60%"</span><br>
+                }
+              </div>
+              <div class="mt-3 text-xs text-indigo-500 font-mono">Frontend (polling) &#8644; Backend (parsing logs)</div>
+            </div>
+          </div>
+
+          <div class="relative flex gap-6 mb-10">
+            <div class="flex-shrink-0 z-10">
+              <div class="w-12 h-12 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">5</div>
+            </div>
+            <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+              <h3 class="text-lg font-bold text-purple-700 mb-2">Le pipeline bash fait le vrai travail</h3>
+              <p class="text-gray-600 text-sm mb-3">Le script bash orchestre les outils bioinformatiques les uns après les autres, chacun dans son environnement Mamba :</p>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                  <div class="text-2xl mb-1">📥</div>
+                  <div class="text-xs font-semibold text-purple-700">Téléchargement</div>
+                  <div class="text-xs text-gray-500">SRA / GenBank</div>
+                </div>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                  <div class="text-2xl mb-1">🔧</div>
+                  <div class="text-xs font-semibold text-purple-700">Assemblage</div>
+                  <div class="text-xs text-gray-500">SPAdes</div>
+                </div>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                  <div class="text-2xl mb-1">🧬</div>
+                  <div class="text-xs font-semibold text-purple-700">Annotation</div>
+                  <div class="text-xs text-gray-500">Prokka</div>
+                </div>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                  <div class="text-2xl mb-1">💊</div>
+                  <div class="text-xs font-semibold text-purple-700">AMRFinderPlus</div>
+                  <div class="text-xs text-gray-500">Détection ARG</div>
+                </div>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                  <div class="text-2xl mb-1">🔬</div>
+                  <div class="text-xs font-semibold text-purple-700">ResFinder</div>
+                  <div class="text-xs text-gray-500">Détection ARG</div>
+                </div>
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                  <div class="text-2xl mb-1">🃏</div>
+                  <div class="text-xs font-semibold text-purple-700">CARD</div>
+                  <div class="text-xs text-gray-500">Détection ARG</div>
+                </div>
+              </div>
+              <div class="mt-3 text-xs text-purple-500 font-mono">Pipeline : MANUAL_MEGA_MONOLITHIC_PIPELINE_v3.2_DOCKER.sh</div>
+            </div>
+          </div>
+
+          <div class="relative flex gap-6 mb-10">
+            <div class="flex-shrink-0 z-10">
+              <div class="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-lg shadow-lg">6</div>
+            </div>
+            <div class="flex-1 bg-white rounded-xl shadow-md p-6 border-l-4 border-emerald-500">
+              <h3 class="text-lg font-bold text-emerald-700 mb-2">Les résultats s'affichent</h3>
+              <p class="text-gray-600 text-sm mb-3">Le pipeline est terminé ! Le backend parse les fichiers de sortie (TSV, HTML) et les renvoie au frontend sous forme de JSON. Le status passe à <code class="bg-green-100 text-green-700 px-1 rounded">COMPLETED</code>.</p>
+              <div class="code-block text-sm">
+                <span class="method">GET</span> /api/results/abc123<br><br>
+                {<br>
+                &nbsp;&nbsp;<span class="key">"amrfinder"</span>: [{ <span class="key">"gene"</span>: <span class="string">"blaTEM-1"</span>, <span class="key">"resistance"</span>: <span class="string">"ampicillin"</span> }],<br>
+                &nbsp;&nbsp;<span class="key">"resfinder"</span>: [...],<br>
+                &nbsp;&nbsp;<span class="key">"card"</span>: [...]<br>
+                }
+              </div>
+              <div class="mt-3 text-xs text-emerald-500 font-mono">Backend (output_parser.py) &#10145; Frontend (page_results_arg.html)</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-16 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Architecture dans Docker : qui fait quoi ?</h2>
+        <p class="text-gray-600 mb-6">Tout tourne dans un conteneur Docker. Voici comment les pièces s'assemblent :</p>
+        <div class="bg-white rounded-xl shadow-lg p-8 border-2 border-gray-200">
+          <div class="text-center mb-4">
+            <div class="inline-block bg-gray-100 border-2 border-gray-300 rounded-lg px-6 py-3">
+              <span class="text-2xl mr-2">🌐</span>
+              <span class="font-bold text-gray-700">Votre navigateur</span>
+              <span class="text-sm text-gray-500 ml-2">(Chrome, Firefox...)</span>
+            </div>
+          </div>
+          <div class="text-center text-gray-400 text-2xl mb-4">&#11015;</div>
+          <div class="border-2 border-dashed border-blue-300 rounded-xl p-6 bg-blue-50/30">
+            <div class="text-center mb-4">
+              <span class="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold">Conteneur Docker</span>
+            </div>
+            <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-5 mb-4">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="text-3xl">🚪</span>
+                <div>
+                  <h4 class="font-bold text-orange-700 text-lg">Nginx</h4>
+                  <p class="text-sm text-gray-600">Le portier — il reçoit TOUTES les requêtes</p>
+                </div>
+              </div>
+              <div class="grid md:grid-cols-2 gap-4">
+                <div class="bg-white rounded-lg p-4 border border-orange-200">
+                  <p class="text-sm font-semibold text-blue-600 mb-1">Pages statiques (HTML, CSS, JS)</p>
+                  <div class="code-block text-xs !p-2">GET /form_launch_analysis.html<br><span class="comment">&#10145; Nginx sert le fichier directement</span></div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-orange-200">
+                  <p class="text-sm font-semibold text-amber-600 mb-1">Requêtes API (/api/*)</p>
+                  <div class="code-block text-xs !p-2">POST /api/launch<br><span class="comment">&#10145; Nginx redirige vers Uvicorn (port 8000)</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div class="bg-green-50 border-2 border-green-300 rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="text-3xl">⚡</span>
+                  <div>
+                    <h4 class="font-bold text-green-700">Uvicorn + FastAPI</h4>
+                    <p class="text-sm text-gray-500">Port 8000</p>
+                  </div>
+                </div>
+                <p class="text-sm text-gray-600">Le serveur Python qui traite les requêtes API, gère la base de données SQLite, et lance le pipeline.</p>
+                <div class="mt-2 text-xs text-green-500 font-mono">main.py, models.py, database.py</div>
+              </div>
+              <div class="bg-purple-50 border-2 border-purple-300 rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="text-3xl">🧪</span>
+                  <div>
+                    <h4 class="font-bold text-purple-700">Pipeline Bash</h4>
+                    <p class="text-sm text-gray-500">Subprocess</p>
+                  </div>
+                </div>
+                <p class="text-sm text-gray-600">Le script bash qui exécute les outils bioinformatiques (AMRFinderPlus, ResFinder, CARD...) via Mamba.</p>
+                <div class="mt-2 text-xs text-purple-500 font-mono">MANUAL_MEGA_MONOLITHIC_PIPELINE_v3.2_DOCKER.sh</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-16 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">Glossaire : les termes techniques en simple</h2>
+        <p class="text-gray-600 mb-6">Pas de panique, voici la traduction :</p>
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-blue-900 text-white">
+                <th class="text-left px-6 py-3 text-sm font-semibold">Terme technique</th>
+                <th class="text-left px-6 py-3 text-sm font-semibold">En simple</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-sm">Frontend</code></td><td class="px-6 py-3 text-sm text-gray-600">La partie visible de l'application : les pages, boutons, formulaires que vous utilisez.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-sm">Backend</code></td><td class="px-6 py-3 text-sm text-gray-600">La partie invisible qui fait les calculs, stocke les données et lance les analyses.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-sm">API</code></td><td class="px-6 py-3 text-sm text-gray-600">Le "langage" que le frontend et le backend utilisent pour communiquer (requêtes HTTP + JSON).</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">GET / POST</code></td><td class="px-6 py-3 text-sm text-gray-600"><strong>GET</strong> = demander des informations. <strong>POST</strong> = envoyer des informations.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-sm">Nginx</code></td><td class="px-6 py-3 text-sm text-gray-600">Le portier de l'application : il reçoit toutes les requêtes et les aiguille au bon endroit.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-sm">FastAPI</code></td><td class="px-6 py-3 text-sm text-gray-600">Le framework Python qui définit les routes API (<code>/api/launch</code>, <code>/api/results</code>...).</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-sm">Docker</code></td><td class="px-6 py-3 text-sm text-gray-600">Une "boîte" qui contient toute l'application et ses dépendances, pour que ça marche partout pareil.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-sm">Mamba / Conda</code></td><td class="px-6 py-3 text-sm text-gray-600">Un gestionnaire d'environnements qui installe les outils bioinformatiques avec les bonnes versions.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">SQLite</code></td><td class="px-6 py-3 text-sm text-gray-600">La base de données (un simple fichier) qui stocke la liste des analyses et leur statut.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-sm">Polling</code></td><td class="px-6 py-3 text-sm text-gray-600">Demander régulièrement "c'est prêt ?" au backend. Comme un enfant à l'arrière de la voiture : "On est arrivés ?"</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">Pipeline</code></td><td class="px-6 py-3 text-sm text-gray-600">Une chaîne d'outils qui s'exécutent les uns après les autres, comme une chaîne de montage.</td></tr>
+              <tr class="hover:bg-gray-50"><td class="px-6 py-3"><code class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm">ARG</code></td><td class="px-6 py-3 text-sm text-gray-600">Antimicrobial Resistance Gene — gène de résistance aux antimicrobiens. C'est ce que le pipeline détecte.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 text-white text-center shadow-lg">
+          <h2 class="text-2xl font-bold mb-4">En résumé</h2>
+          <p class="text-lg max-w-3xl mx-auto leading-relaxed">
+            Vous cliquez sur un bouton <span class="font-bold">(frontend)</span>,
+            le navigateur envoie un message <span class="font-bold">(API)</span>,
+            Python lance les outils bioinformatiques <span class="font-bold">(backend + pipeline)</span>,
+            et les résultats s'affichent dans votre navigateur.
+            <br><br>
+            <span class="text-blue-200">C'est tout !</span>
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================== -->
+    <!-- ONGLET 2 : Comprendre mes outils -->
+    <!-- ========================================================== -->
+    <div id="panel-tools" class="hidden">
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+          Contrôle Qualité
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">FastQC</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-blue-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">FastQC analyse la qualité brute des reads de séquençage. Il évalue la distribution des scores de qualité par base, le contenu en GC, la présence d'adaptateurs, les séquences surreprésentées et les niveaux de duplication.</p></div>
+              <div><h4 class="font-semibold text-blue-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Il intervient en tout premier pour vérifier que les données brutes sont exploitables avant tout traitement. C'est le diagnostic initial qui détermine si un nettoyage sera nécessaire.</p></div>
+              <div><h4 class="font-semibold text-blue-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Les modules passés en vert sont satisfaisants. Les avertissements orange méritent attention mais ne sont pas bloquants. Les échecs rouges (adaptateurs, qualité basse en fin de read) sont corrigés par fastp à l'étape suivante.</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">fastp</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-blue-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">fastp effectue le trimming et le filtrage des reads : suppression des adaptateurs, élimination des reads de mauvaise qualité, correction des bases et filtrage par longueur minimale.</p></div>
+              <div><h4 class="font-semibold text-blue-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Il nettoie les données brutes pour que l'assemblage en aval soit de meilleure qualité. Des reads propres produisent des contigs plus longs et plus fiables.</p></div>
+              <div><h4 class="font-semibold text-blue-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Vérifiez le pourcentage de reads conservés (idéalement > 85%). Le rapport indique le nombre de reads filtrés et la raison (qualité, longueur, adaptateurs). Un taux de filtrage élevé peut indiquer un problème de séquençage.</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">MultiQC</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-blue-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">MultiQC agrège les rapports de tous les outils QC (FastQC, fastp, QUAST, etc.) en un seul rapport HTML interactif avec des graphiques comparatifs.</p></div>
+              <div><h4 class="font-semibold text-blue-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Il fournit une vue d'ensemble unifiée de toutes les métriques de qualité. Au lieu de consulter chaque rapport séparément, vous avez tout en un coup d'œil.</p></div>
+              <div><h4 class="font-semibold text-blue-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Le rapport interactif permet de comparer les échantillons entre eux. Cherchez les outliers dans les graphiques : un échantillon très différent des autres mérite une investigation.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
+          Acquisition des données
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-cyan-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">sra-tools</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-cyan-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">sra-tools (fasterq-dump, prefetch) télécharge les données de séquençage depuis la base NCBI SRA. Il convertit les fichiers SRA en fichiers FASTQ utilisables par le pipeline.</p></div>
+              <div><h4 class="font-semibold text-cyan-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">C'est le point d'entrée quand vous analysez des données publiques via un numéro d'accession SRA (ex: SRR1234567). Il récupère automatiquement les reads paired-end ou single-end.</p></div>
+              <div><h4 class="font-semibold text-cyan-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Le téléchargement produit des fichiers FASTQ (_1.fastq et _2.fastq pour du paired-end). Vérifiez que les fichiers ne sont pas vides et que le nombre de reads correspond aux métadonnées SRA.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-green-500"></span>
+          Assemblage
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">SPAdes</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-green-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">SPAdes est un assembleur de novo qui reconstruit le génome à partir des reads courts. Il utilise des graphes de Bruijn avec plusieurs valeurs de k-mer pour produire des contigs et scaffolds.</p></div>
+              <div><h4 class="font-semibold text-green-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">L'assemblage est l'étape centrale : il transforme des millions de reads courts en séquences génomiques continues. Sans assemblage, impossible d'annoter les gènes ou de détecter les gènes de résistance sur des contigs complets.</p></div>
+              <div><h4 class="font-semibold text-green-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Un bon assemblage a un N50 élevé (idéalement > 50 kb pour une bactérie), peu de contigs (< 200) et une taille totale cohérente avec le génome attendu. Vérifiez aussi que le coverage moyen est suffisant (> 30x).</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">seqkit</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-green-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">seqkit est un outil de manipulation de séquences FASTA/FASTQ. Il calcule des statistiques (nombre de séquences, longueur, N50) et filtre les contigs par taille minimale.</p></div>
+              <div><h4 class="font-semibold text-green-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Après l'assemblage, seqkit filtre les contigs trop courts (< 500 bp) qui sont souvent du bruit, et fournit des statistiques de base sur l'assemblage.</p></div>
+              <div><h4 class="font-semibold text-green-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Les statistiques seqkit montrent le nombre total de contigs, la longueur totale, le N50 et la longueur du plus long contig. Comparez la taille totale avec la taille attendue du génome de votre organisme.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-teal-500"></span>
+          Évaluation de l'assemblage
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-teal-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">QUAST</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-teal-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">QUAST évalue la qualité de l'assemblage en calculant des métriques détaillées : N50, L50, nombre de contigs, taille totale, plus long contig, contenu GC, et nombre de N par 100 kbp.</p></div>
+              <div><h4 class="font-semibold text-teal-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">QUAST valide que l'assemblage est de qualité suffisante pour les analyses en aval. Un mauvais assemblage produirait des résultats de détection de résistance peu fiables.</p></div>
+              <div><h4 class="font-semibold text-teal-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Un N50 > 50 kb est bon pour une bactérie. Le nombre de contigs < 200 est acceptable. La taille totale doit correspondre à la taille attendue du génome (+/- 10%). Un GC% aberrant peut indiquer une contamination.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+          Annotation
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-amber-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Prokka</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-amber-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">Prokka annote rapidement les génomes procaryotes : il prédit les gènes codants (CDS), les ARN ribosomiques (rRNA), les ARN de transfert (tRNA) et les éléments régulateurs. Il attribue des noms de gènes et des fonctions par homologie.</p></div>
+              <div><h4 class="font-semibold text-amber-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">L'annotation transforme des séquences brutes en informations biologiques exploitables. Elle identifie chaque gène et sa fonction potentielle, ce qui est essentiel pour comprendre le contenu génétique de l'organisme.</p></div>
+              <div><h4 class="font-semibold text-amber-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Le nombre de CDS doit être cohérent avec la taille du génome (environ 1 gène pour 1 kb). Les protéines hypothétiques sont normales (30-40% typiquement). Les fichiers GFF et GBK peuvent être visualisés dans des outils comme Artemis ou IGV.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+          Typage moléculaire
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">MLST</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-purple-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">MLST (Multi-Locus Sequence Typing) détermine le Sequence Type (ST) d'un isolat en analysant les allèles de 7 gènes de ménage conservés. Chaque combinaison unique d'allèles définit un ST.</p></div>
+              <div><h4 class="font-semibold text-purple-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Le typage MLST permet de situer l'isolat dans un contexte épidémiologique. Certains STs sont associés à des clones épidémiques connus (ex: ST131 chez E. coli, ST258 chez K. pneumoniae) ou à des profils de résistance spécifiques.</p></div>
+              <div><h4 class="font-semibold text-purple-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Le schéma identifié correspond à l'espèce détectée. Le ST est un numéro unique. Si le ST est "Non détecté", cela signifie que la combinaison d'allèles ne correspond à aucun ST connu dans la base PubMLST, mais le profil allélique reste informatif.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-red-500"></span>
+          Détection des gènes de résistance (ARG)
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">AMRFinderPlus</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-red-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">AMRFinderPlus (NCBI) identifie les gènes de résistance aux antimicrobiens, les gènes de virulence et les gènes de tolérance au stress. Il utilise une base de données curée par le NCBI avec des modèles HMM et BLAST.</p></div>
+              <div><h4 class="font-semibold text-red-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">C'est l'outil de référence du NCBI pour la détection ARG. Sa base est régulièrement mise à jour et inclut la nomenclature standardisée. Il détecte aussi les mutations ponctuelles de résistance chez certaines espèces.</p></div>
+              <div><h4 class="font-semibold text-red-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Chaque gène détecté indique la classe d'antibiotique concernée et le pourcentage d'identité/couverture. Une identité > 90% avec une couverture > 80% est un résultat fiable.</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">ResFinder</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-red-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">ResFinder (Center for Genomic Epidemiology) détecte les gènes de résistance acquise aux antimicrobiens par alignement BLAST contre sa propre base de données curée.</p></div>
+              <div><h4 class="font-semibold text-red-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">ResFinder complète AMRFinderPlus avec une base de données indépendante. Le croisement de deux sources améliore la sensibilité et la spécificité de la détection.</p></div>
+              <div><h4 class="font-semibold text-red-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Les résultats montrent le gène, le phénotype prédit, l'identité et la couverture. Les seuils par défaut sont 90% identité et 60% couverture. Les gènes avec une couverture partielle peuvent être des fragments.</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">CARD / RGI</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-red-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">RGI (Resistance Gene Identifier) utilise la base CARD (Comprehensive Antibiotic Resistance Database) avec des modèles de détection par homologie protéique, variants SNP et modèles de sur-expression.</p></div>
+              <div><h4 class="font-semibold text-red-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">CARD/RGI apporte une troisième perspective indépendante et classifie les mécanismes de résistance (efflux, modification de cible, inactivation enzymatique).</p></div>
+              <div><h4 class="font-semibold text-red-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Les résultats "Perfect" indiquent une correspondance exacte avec la base CARD. "Strict" indique une détection fiable. "Loose" sont des hits moins fiables à interpréter avec prudence.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+          Virulence et plasmides
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">VFDB</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-orange-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">VFDB (Virulence Factors Database) identifie les facteurs de virulence bactériens : adhésines, toxines, systèmes de sécrétion, capsules, sidérophores et autres déterminants de pathogénicité.</p></div>
+              <div><h4 class="font-semibold text-orange-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">La détection de virulence complète l'analyse de résistance. Un isolat résistant ET virulent représente une menace plus importante.</p></div>
+              <div><h4 class="font-semibold text-orange-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Les facteurs de virulence sont classés par catégorie (adhésion, toxine, etc.). Comparez avec les profils de virulence typiques de l'espèce pour identifier des acquisitions inhabituelles.</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">PlasmidFinder</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-orange-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">PlasmidFinder identifie les réplicons plasmidiques dans les assemblages. Il détecte les groupes d'incompatibilité (IncF, IncI, IncN, etc.) qui classifient les plasmides selon leur mécanisme de réplication.</p></div>
+              <div><h4 class="font-semibold text-orange-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Les plasmides sont les principaux vecteurs de dissémination des gènes de résistance. Identifier les plasmides présents aide à évaluer le risque de transfert horizontal.</p></div>
+              <div><h4 class="font-semibold text-orange-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Chaque réplicon détecté indique un type de plasmide. Certains groupes d'incompatibilité sont connus pour porter des gènes de résistance spécifiques (ex: IncF avec blaCTX-M).</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+          Détection de mutations
+        </h2>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">PointFinder</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-indigo-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">PointFinder détecte les mutations ponctuelles (SNPs) connues pour conférer une résistance aux antibiotiques. Il cible les gènes chromosomiques comme gyrA, parC, rpoB, etc.</p></div>
+              <div><h4 class="font-semibold text-indigo-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Les mutations ponctuelles sont sur le chromosome. Elles sont particulièrement importantes pour les fluoroquinolones, la rifampicine et la colistine.</p></div>
+              <div><h4 class="font-semibold text-indigo-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Chaque mutation est décrite par le gène, la position et le changement d'acide aminé (ex: gyrA S83L). Les mutations "connues" dans la base sont les plus fiables.</p></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Snippy</h3>
+            <div class="space-y-3">
+              <div><h4 class="font-semibold text-indigo-700 mb-1">Ce que fait cet outil</h4><p class="text-gray-600">Snippy détecte les variants (SNPs et indels) en alignant les reads sur un génome de référence. Il produit un fichier VCF annoté avec l'impact de chaque variant sur les gènes.</p></div>
+              <div><h4 class="font-semibold text-indigo-700 mb-1">Son rôle dans le pipeline</h4><p class="text-gray-600">Snippy fournit une analyse complète des variants au-delà des mutations de résistance connues, permettant de détecter des mutations nouvelles ou rares.</p></div>
+              <div><h4 class="font-semibold text-indigo-700 mb-1">Comment interpréter les résultats</h4><p class="text-gray-600">Les variants sont classés par impact : HIGH (frameshift, stop gained), MODERATE (missense), LOW (synonyme). Concentrez-vous sur les variants HIGH et MODERATE dans les gènes connus de résistance.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="mb-12 fade-in">
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 text-white text-center shadow-lg">
+          <h2 class="text-2xl font-bold mb-4">En résumé</h2>
+          <p class="text-lg max-w-3xl mx-auto leading-relaxed">
+            Le pipeline utilise <span class="font-bold">15 outils complémentaires</span> qui couvrent toute la chaîne :
+            de la qualité des reads bruts jusqu'à la détection des gènes de résistance, mutations, virulence et plasmides.
+            <br><br>
+            <span class="text-blue-200">Chaque outil apporte un angle différent. C'est leur combinaison qui donne des résultats fiables.</span>
+          </p>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-800 text-gray-400 text-center py-6">
+    <p class="text-sm">
+      <a href="form_launch_analysis.html" class="text-blue-400 hover:text-blue-300 transition">&#8592; Retour à l'accueil</a>
+      &nbsp;&middot;&nbsp;
+      MEGAM ARG Detection &mdash; Pipeline de détection des gènes de résistance aux antimicrobiens
+    </p>
+  </footer>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-md mx-4">
+      <div class="text-center">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-20 mx-auto mb-4">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2">MEGAM ARG Detection</h2>
+        <p class="text-gray-500 text-sm mb-4">Pipeline de détection des gènes de résistance aux antimicrobiens</p>
+        <div class="bg-blue-50 rounded-lg p-4 mb-4 text-left">
+          <p class="text-sm text-gray-600"><strong>Version :</strong> v3.2</p>
+          <p class="text-sm text-gray-600"><strong>Pipeline :</strong> AMRFinderPlus, ResFinder, CARD, VFDB, MLST</p>
+          <p class="text-sm text-gray-600"><strong>Assemblage :</strong> SPAdes + QUAST</p>
+          <p class="text-sm text-gray-600"><strong>Annotation :</strong> Prokka</p>
+          <p class="text-sm text-gray-600"><strong>Architecture :</strong> Docker + FastAPI + Nginx</p>
+        </div>
+        <button onclick="closeAboutModal()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      const how = document.getElementById('panel-how');
+      const tools = document.getElementById('panel-tools');
+      const btnHow = document.getElementById('tab-how');
+      const btnTools = document.getElementById('tab-tools');
+      if (tab === 'how') {
+        how.classList.remove('hidden');
+        tools.classList.add('hidden');
+        btnHow.classList.add('active');
+        btnTools.classList.remove('active');
+      } else {
+        how.classList.add('hidden');
+        tools.classList.remove('hidden');
+        btnHow.classList.remove('active');
+        btnTools.classList.add('active');
+      }
+      // Scroll to top of main
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function openAboutModal() {
+      document.getElementById('about-modal').classList.remove('hidden');
+    }
+    function closeAboutModal() {
+      document.getElementById('about-modal').classList.add('hidden');
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAboutModal();
+    });
+  </script>
+
+</body>
+</html>

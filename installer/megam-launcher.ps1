@@ -229,7 +229,7 @@ if (-not $imageExists) {
 } else {
     # Image deja presente, demarrage rapide
     "[$(Get-Date)] Image existante, demarrage rapide..." | Out-File $LogFile -Append
-    $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Verification des mises a jour et demarrage... (~30 secondes)"
+    $form = Show-Progress -Title "MEGAM ARG Detection" -Message "Verification des mises a jour et demarrage...`nSi une mise a jour est disponible, le telechargement peut prendre 10 a 15 minutes.`nLa progression s'affiche dans la fenetre noire ci-dessus."
 
     try {
         $cmdArgs = '/c docker compose -f "' + $ComposeFile + '" up -d --pull always'

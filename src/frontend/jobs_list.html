@@ -17,9 +17,9 @@
   <header class="bg-blue-900 text-white px-6 py-3 shadow-lg">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto">
+        <img src="logo.png" alt="MEGAM ARG Detection" class="h-12 w-auto cursor-pointer" onclick="openAboutModal()" title="À propos de MEGAM ARG Detection">
       </div>
-      <nav class="flex gap-1 items-center">
+      <nav class="flex gap-1 items-center flex-wrap">
         <a id="running-jobs-indicator" href="#" class="hidden bg-orange-500 text-white px-3 py-2 rounded font-medium hover:bg-orange-600 transition items-center gap-2 animate-pulse">
           <span class="animate-spin">⚙️</span> <span id="running-count">0</span> en cours
         </a>
@@ -35,15 +35,9 @@
         <a href="dashboard_monitoring.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
           Dashboard
         </a>
-        <a href="how_it_works.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
-          Comment ca marche ?
+        <a href="comprendre_pipeline.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
+          Comprendre le pipeline
         </a>
-        <a href="comprendre_outils.html" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
-          Comprendre mes outils
-        </a>
-        <button onclick="openAboutModal()" class="bg-blue-700 text-white px-4 py-2 rounded font-medium hover:bg-blue-600 transition text-sm">
-          À propos
-        </button>
       </nav>
     </div>
   </header>
