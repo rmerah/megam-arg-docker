@@ -6,8 +6,13 @@
 $ErrorActionPreference = "SilentlyContinue"
 
 function Test-WSL {
+    # Utiliser le chemin absolu pour eviter l'erreur "terme non reconnu"
+    # sur les machines ou WSL n'a jamais ete installe
+    $wslExe = "$env:SystemRoot\System32\wsl.exe"
+    if (-not (Test-Path $wslExe)) { return $false }
+
     try {
-        $wslOutput = wsl --status 2>&1
+        $wslOutput = & $wslExe --status 2>&1
         if ($LASTEXITCODE -eq 0) { return $true }
     } catch {}
 

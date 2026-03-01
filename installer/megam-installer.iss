@@ -78,13 +78,23 @@ var
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Détection WSL2
+// Utilise le chemin absolu vers wsl.exe pour éviter l'erreur "terme non reconnu"
+// sur les machines où WSL n'a jamais été installé (wsl.exe absent du PATH)
 // ─────────────────────────────────────────────────────────────────────────────
 function CheckWSL: Boolean;
 var
   ExitCode: Integer;
+  WslExe: String;
 begin
+  WslExe := ExpandConstant('{sys}\wsl.exe');
+  // Si wsl.exe n'existe pas du tout, WSL n'est pas installé
+  if not FileExists(WslExe) then
+  begin
+    Result := False;
+    Exit;
+  end;
   // wsl --status retourne 0 si WSL est installé et fonctionnel
-  Exec('cmd.exe', '/c wsl --status >nul 2>&1', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  Exec(WslExe, '--status', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
   Result := (ExitCode = 0);
 end;
 
@@ -189,12 +199,41 @@ end;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Installation WSL2 via wsl --install
+// Utilise le chemin absolu pour éviter l'erreur "terme non reconnu".
+// Sur Windows trop ancien (< Build 19041), wsl.exe est absent : on affiche
+// un message d'erreur explicite plutôt qu'un échec silencieux.
 // ─────────────────────────────────────────────────────────────────────────────
 function DoInstallWSL: Boolean;
 var
   ExitCode: Integer;
+  WslExe: String;
 begin
-  Result := Exec('cmd.exe', '/c wsl --install --no-distribution',
+  Result := False;
+  WslExe := ExpandConstant('{sys}\wsl.exe');
+
+  // wsl.exe absent = Windows trop ancien pour wsl --install (< Build 19041)
+  if not FileExists(WslExe) then
+  begin
+    MsgBox(
+      'La commande wsl.exe est introuvable sur votre système.' + #13#10 +
+      '' + #13#10 +
+      'Votre version de Windows est probablement trop ancienne.' + #13#10 +
+      'WSL2 nécessite Windows 10 version 2004 (Build 19041) ou supérieur.' + #13#10 +
+      '' + #13#10 +
+      'Solutions :' + #13#10 +
+      '  1. Mettez à jour Windows via :' + #13#10 +
+      '     Paramètres → Mise à jour et sécurité → Windows Update' + #13#10 +
+      '' + #13#10 +
+      '  2. Ou activez WSL manuellement (PowerShell en administrateur) :' + #13#10 +
+      '     dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart' + #13#10 +
+      '     dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart' + #13#10 +
+      '     Puis redémarrez et relancez cet installeur.',
+      mbError, MB_OK);
+    Exit;
+  end;
+
+  // Lancer wsl --install via le chemin absolu
+  Result := Exec(WslExe, '--install --no-distribution',
                  '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
   Result := Result and (ExitCode = 0);
   if Result then
